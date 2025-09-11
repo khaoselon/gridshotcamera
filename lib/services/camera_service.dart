@@ -25,7 +25,7 @@ class CameraService extends ChangeNotifier {
   bool get isDisposed => _isDisposed;
   bool get isInitializing => _isInitializing;
 
-  /// カメラを初期化
+  /// カメラを初期化（権限は自動処理）
   Future<bool> initialize({CameraDescription? preferredCamera}) async {
     if (_isDisposed) {
       debugPrint('CameraService: 既に破棄済みのため初期化をスキップします');
@@ -81,6 +81,7 @@ class CameraService extends ChangeNotifier {
         return false;
       }
 
+      // カメラ初期化時に権限が自動的にチェック・要求されます
       await _controller!.initialize();
 
       // 再度disposeチェック（初期化中に破棄された可能性）
@@ -101,6 +102,13 @@ class CameraService extends ChangeNotifier {
     } catch (e) {
       _lastError = 'カメラの初期化に失敗しました: $e';
       debugPrint(_lastError);
+
+      // 権限エラーの場合の特別なメッセージ
+      if (e.toString().contains('permission') ||
+          e.toString().contains('Permission')) {
+        _lastError = 'カメラの使用許可が必要です。設定からカメラアクセスを許可してください。';
+      }
+
       _isInitialized = false;
       await _safeDisposeController();
     } finally {

@@ -260,7 +260,7 @@ class ImageComposerService {
     );
   }
 
-  /// 合成画像を保存
+  /// 合成画像を保存（権限は自動処理）
   Future<String> _saveCompositeImage(
     img.Image image,
     ShootingSession session,
@@ -283,12 +283,23 @@ class ImageComposerService {
     final file = File(filePath);
     await file.writeAsBytes(jpegBytes);
 
-    // ギャラリーに保存（ユーザーが確認できるように）
+    // ギャラリーに保存（galパッケージが自動的に権限をチェック・要求）
     try {
+      debugPrint('ギャラリーへの保存を開始...');
       await Gal.putImage(filePath);
       debugPrint('ギャラリーへの保存完了');
     } catch (e) {
-      debugPrint('ギャラリー保存エラー（続行）: $e');
+      // 権限拒否やその他のエラーの場合、詳細なログを出力
+      if (e.toString().contains('permission') ||
+          e.toString().contains('Permission')) {
+        debugPrint('ギャラリー保存: 権限が拒否されました: $e');
+        debugPrint('注意: 画像はアプリ内には保存されましたが、写真ライブラリには保存されませんでした');
+      } else {
+        debugPrint('ギャラリー保存エラー: $e');
+      }
+
+      // エラーが発生してもアプリ内のファイルは保存されているので、処理を続行
+      // ユーザーには後で手動で保存してもらうか、共有機能を使ってもらう
     }
 
     return filePath;
