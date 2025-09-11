@@ -271,7 +271,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 8),
           Text(
-            '撮影したい写真のスタイルを選択してください',
+            l10n.selectPhotoStyle, // 多言語化対応
             style: theme.textTheme.bodyMedium?.copyWith(
               fontSize: 16,
               color: colorScheme.onSurface.withOpacity(0.7),
@@ -289,7 +289,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '撮影モード',
+          l10n.shootingMode, // 多言語化対応
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
             fontSize: 20,
@@ -402,7 +402,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '選択中: ${_getGridStyleLabel(l10n, _selectedGridStyle)}',
+          l10n.selectedGrid(
+            _getGridStyleLabel(l10n, _selectedGridStyle),
+          ), // 多言語化対応
           style: theme.textTheme.bodyLarge?.copyWith(
             fontWeight: FontWeight.w600,
             color: colorScheme.primary,

@@ -57,5 +57,112 @@
   "trackingPermissionTitle": "アプリトラッキング許可",
   "trackingPermissionMessage": "広告をパーソナライズするために、他のアプリでのアクティビティ追跡を許可してください。",
   "allow": "許可",
-  "dontAllow": "許可しない"
+  "dontAllow": "許可しない",
+
+  "selectPhotoStyle": "撮影したい写真のスタイルを選択してください",
+  "shootingMode": "撮影モード",
+  "selectedGrid": "選択中: {gridStyle}",
+  "@selectedGrid": {
+    "placeholders": {
+      "gridStyle": {
+        "type": "String"
+      }
+    }
+  },
+  "checkingPermissions": "権限確認中...",
+  "confirmation": "確認",
+  "retakePhotos": "撮影をやり直しますか？",
+  "takeNewPhoto": "新しく撮影する",
+  "shootingInfo": "撮影情報",
+  "mode": "モード",
+  "gridStyleInfo": "グリッドスタイル",
+  "photoCount": "撮影枚数",
+  "shootingDate": "撮影日時",
+  "saving": "保存中...",
+  "sharing": "共有中...",
+  "catalogModeDisplay": "カタログモード",
+  "impossibleModeDisplay": "不可能合成モード",
+  "resetSettings": "設定をリセット",
+  "appInfo": "アプリ情報",
+  "version": "バージョン",
+  "developer": "開発者",
+  "aboutAds": "広告について",
+  "selectBorderColor": "境界線の色を選択",
+  "resetConfirmation": "すべての設定を初期値に戻しますか？この操作は取り消せません。",
+  "reset": "リセット",
+  "settingsReset": "設定がリセットされました",
+  "retry": "再試行",
+  "preparingCamera": "カメラを準備中...",
+  "cameraError": "カメラエラー",
+  "initializationFailed": "初期化に失敗しました",
+  "unsupportedDevice": "サポートされていないデバイスです",
+  "permissionDenied": "権限が拒否されました",
+  "unknownError": "不明なエラーが発生しました",
+  "tryAgain": "再試行",
+  "goBack": "戻る",
+  "photosCount": "{count}枚",
+  "@photosCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "compositingProgress": "{total}枚中{current}枚目を合成中...",
+  "@compositingProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "pleaseWait": "少々お待ちください...",
+  "imageInfo": "画像情報",
+  "fileSize": "ファイルサイズ",
+  "dimensions": "解像度",
+  "format": "フォーマット",
+  "quality": "品質",
+  "highQuality": "最高品質 (95%) - ファイルサイズ大",
+  "mediumQuality": "中品質 (75%) - バランス良好",
+  "lowQuality": "低品質 (50%) - ファイルサイズ小",
+  "gridBorderDescription": "撮影時にグリッド線を表示します",
+  "currentColor": "現在の色: {colorName}",
+  "@currentColor": {
+    "placeholders": {
+      "colorName": {
+        "type": "String"
+      }
+    }
+  },
+  "borderWidthValue": "{width}px",
+  "@borderWidthValue": {
+    "placeholders": {
+      "width": {
+        "type": "String"
+      }
+    }
+  },
+  "appDescription": "本アプリは広告収益によって運営されています",
+  "teamName": "GridShot Camera Team",
+  "white": "白",
+  "black": "黒",
+  "red": "赤",
+  "blue": "青",
+  "green": "緑",
+  "yellow": "黄",
+  "orange": "オレンジ",
+  "purple": "紫",
+  "pink": "ピンク",
+  "cyan": "シアン",
+  "gray": "グレー",
+  "magenta": "マゼンタ",
+  "custom": "カスタム",
+  "lightColor": "明るい色",
+  "darkColor": "暗い色",
+  "redTone": "赤系",
+  "greenTone": "緑系",
+  "blueTone": "青系"
 }

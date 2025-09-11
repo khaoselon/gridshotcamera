@@ -62,7 +62,8 @@ import 'app_localizations_ja.dart';
 /// be consistent with the languages listed in the AppLocalizations.supportedLocales
 /// property.
 abstract class AppLocalizations {
-  AppLocalizations(String locale) : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+  AppLocalizations(String locale)
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -70,7 +71,8 @@ abstract class AppLocalizations {
     return Localizations.of<AppLocalizations>(context, AppLocalizations);
   }
 
-  static const LocalizationsDelegate<AppLocalizations> delegate = _AppLocalizationsDelegate();
+  static const LocalizationsDelegate<AppLocalizations> delegate =
+      _AppLocalizationsDelegate();
 
   /// A list of this localizations delegate along with the default localizations
   /// delegates.
@@ -82,17 +84,18 @@ abstract class AppLocalizations {
   /// Additional delegates can be added by appending to this list in
   /// MaterialApp. This list does not have to be used at all if a custom list
   /// of delegates is preferred or required.
-  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates = <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
+      <LocalizationsDelegate<dynamic>>[
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('ja')
+    Locale('ja'),
   ];
 
   /// No description provided for @appTitle.
@@ -406,9 +409,418 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Don\'t Allow'**
   String get dontAllow;
+
+  /// No description provided for @selectPhotoStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'Select your desired photo style'**
+  String get selectPhotoStyle;
+
+  /// No description provided for @shootingMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Shooting Mode'**
+  String get shootingMode;
+
+  /// No description provided for @selectedGrid.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected: {gridStyle}'**
+  String selectedGrid(String gridStyle);
+
+  /// No description provided for @checkingPermissions.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking permissions...'**
+  String get checkingPermissions;
+
+  /// No description provided for @confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirmation'**
+  String get confirmation;
+
+  /// No description provided for @retakePhotos.
+  ///
+  /// In en, this message translates to:
+  /// **'Do you want to retake the photos?'**
+  String get retakePhotos;
+
+  /// No description provided for @takeNewPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Take New Photo'**
+  String get takeNewPhoto;
+
+  /// No description provided for @shootingInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Shooting Information'**
+  String get shootingInfo;
+
+  /// No description provided for @mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Mode'**
+  String get mode;
+
+  /// No description provided for @gridStyleInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Grid Style'**
+  String get gridStyleInfo;
+
+  /// No description provided for @photoCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo Count'**
+  String get photoCount;
+
+  /// No description provided for @shootingDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Shooting Date'**
+  String get shootingDate;
+
+  /// No description provided for @saving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving...'**
+  String get saving;
+
+  /// No description provided for @sharing.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing...'**
+  String get sharing;
+
+  /// No description provided for @catalogModeDisplay.
+  ///
+  /// In en, this message translates to:
+  /// **'Catalog Mode'**
+  String get catalogModeDisplay;
+
+  /// No description provided for @impossibleModeDisplay.
+  ///
+  /// In en, this message translates to:
+  /// **'Impossible Composite Mode'**
+  String get impossibleModeDisplay;
+
+  /// No description provided for @resetSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset Settings'**
+  String get resetSettings;
+
+  /// No description provided for @appInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'App Information'**
+  String get appInfo;
+
+  /// No description provided for @version.
+  ///
+  /// In en, this message translates to:
+  /// **'Version'**
+  String get version;
+
+  /// No description provided for @developer.
+  ///
+  /// In en, this message translates to:
+  /// **'Developer'**
+  String get developer;
+
+  /// No description provided for @aboutAds.
+  ///
+  /// In en, this message translates to:
+  /// **'About Ads'**
+  String get aboutAds;
+
+  /// No description provided for @selectBorderColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Border Color'**
+  String get selectBorderColor;
+
+  /// No description provided for @resetConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset all settings to default values? This action cannot be undone.'**
+  String get resetConfirmation;
+
+  /// No description provided for @reset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get reset;
+
+  /// No description provided for @settingsReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings have been reset'**
+  String get settingsReset;
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retry;
+
+  /// No description provided for @preparingCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing camera...'**
+  String get preparingCamera;
+
+  /// No description provided for @cameraError.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera Error'**
+  String get cameraError;
+
+  /// No description provided for @initializationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Initialization failed'**
+  String get initializationFailed;
+
+  /// No description provided for @unsupportedDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsupported device'**
+  String get unsupportedDevice;
+
+  /// No description provided for @permissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission denied'**
+  String get permissionDenied;
+
+  /// No description provided for @unknownError.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown error occurred'**
+  String get unknownError;
+
+  /// No description provided for @tryAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Try Again'**
+  String get tryAgain;
+
+  /// No description provided for @goBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Go Back'**
+  String get goBack;
+
+  /// No description provided for @photosCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} photos'**
+  String photosCount(int count);
+
+  /// No description provided for @compositingProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Compositing {current} of {total} images...'**
+  String compositingProgress(int current, int total);
+
+  /// No description provided for @pleaseWait.
+  ///
+  /// In en, this message translates to:
+  /// **'Please wait...'**
+  String get pleaseWait;
+
+  /// No description provided for @imageInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Image Information'**
+  String get imageInfo;
+
+  /// No description provided for @fileSize.
+  ///
+  /// In en, this message translates to:
+  /// **'File Size'**
+  String get fileSize;
+
+  /// No description provided for @dimensions.
+  ///
+  /// In en, this message translates to:
+  /// **'Dimensions'**
+  String get dimensions;
+
+  /// No description provided for @format.
+  ///
+  /// In en, this message translates to:
+  /// **'Format'**
+  String get format;
+
+  /// No description provided for @quality.
+  ///
+  /// In en, this message translates to:
+  /// **'Quality'**
+  String get quality;
+
+  /// No description provided for @highQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'High Quality (95%) - Large file size'**
+  String get highQuality;
+
+  /// No description provided for @mediumQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium Quality (75%) - Balanced'**
+  String get mediumQuality;
+
+  /// No description provided for @lowQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Low Quality (50%) - Small file size'**
+  String get lowQuality;
+
+  /// No description provided for @gridBorderDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Display grid lines during shooting'**
+  String get gridBorderDescription;
+
+  /// No description provided for @currentColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Current color: {colorName}'**
+  String currentColor(String colorName);
+
+  /// No description provided for @borderWidthValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{width}px'**
+  String borderWidthValue(String width);
+
+  /// No description provided for @appDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'This app is operated through advertising revenue'**
+  String get appDescription;
+
+  /// No description provided for @teamName.
+  ///
+  /// In en, this message translates to:
+  /// **'GridShot Camera Team'**
+  String get teamName;
+
+  /// No description provided for @white.
+  ///
+  /// In en, this message translates to:
+  /// **'White'**
+  String get white;
+
+  /// No description provided for @black.
+  ///
+  /// In en, this message translates to:
+  /// **'Black'**
+  String get black;
+
+  /// No description provided for @red.
+  ///
+  /// In en, this message translates to:
+  /// **'Red'**
+  String get red;
+
+  /// No description provided for @blue.
+  ///
+  /// In en, this message translates to:
+  /// **'Blue'**
+  String get blue;
+
+  /// No description provided for @green.
+  ///
+  /// In en, this message translates to:
+  /// **'Green'**
+  String get green;
+
+  /// No description provided for @yellow.
+  ///
+  /// In en, this message translates to:
+  /// **'Yellow'**
+  String get yellow;
+
+  /// No description provided for @orange.
+  ///
+  /// In en, this message translates to:
+  /// **'Orange'**
+  String get orange;
+
+  /// No description provided for @purple.
+  ///
+  /// In en, this message translates to:
+  /// **'Purple'**
+  String get purple;
+
+  /// No description provided for @pink.
+  ///
+  /// In en, this message translates to:
+  /// **'Pink'**
+  String get pink;
+
+  /// No description provided for @cyan.
+  ///
+  /// In en, this message translates to:
+  /// **'Cyan'**
+  String get cyan;
+
+  /// No description provided for @gray.
+  ///
+  /// In en, this message translates to:
+  /// **'Gray'**
+  String get gray;
+
+  /// No description provided for @magenta.
+  ///
+  /// In en, this message translates to:
+  /// **'Magenta'**
+  String get magenta;
+
+  /// No description provided for @custom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get custom;
+
+  /// No description provided for @lightColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Light Color'**
+  String get lightColor;
+
+  /// No description provided for @darkColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark Color'**
+  String get darkColor;
+
+  /// No description provided for @redTone.
+  ///
+  /// In en, this message translates to:
+  /// **'Red Tone'**
+  String get redTone;
+
+  /// No description provided for @greenTone.
+  ///
+  /// In en, this message translates to:
+  /// **'Green Tone'**
+  String get greenTone;
+
+  /// No description provided for @blueTone.
+  ///
+  /// In en, this message translates to:
+  /// **'Blue Tone'**
+  String get blueTone;
 }
 
-class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
+class _AppLocalizationsDelegate
+    extends LocalizationsDelegate<AppLocalizations> {
   const _AppLocalizationsDelegate();
 
   @override
@@ -417,25 +829,26 @@ class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> 
   }
 
   @override
-  bool isSupported(Locale locale) => <String>['en', 'ja'].contains(locale.languageCode);
+  bool isSupported(Locale locale) =>
+      <String>['en', 'ja'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
 }
 
 AppLocalizations lookupAppLocalizations(Locale locale) {
-
-
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
-    case 'en': return AppLocalizationsEn();
-    case 'ja': return AppLocalizationsJa();
+    case 'en':
+      return AppLocalizationsEn();
+    case 'ja':
+      return AppLocalizationsJa();
   }
 
   throw FlutterError(
     'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
     'an issue with the localizations generation tool. Please file an issue '
     'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.'
+    'that was used.',
   );
 }

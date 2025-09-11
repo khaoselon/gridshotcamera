@@ -454,7 +454,10 @@ class _CameraScreenState extends State<CameraScreen>
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            ElevatedButton(onPressed: _initializeCamera, child: Text('再試行')),
+            ElevatedButton(
+              onPressed: _initializeCamera,
+              child: Text(l10n.retry),
+            ), // 多言語化対応
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -477,10 +480,10 @@ class _CameraScreenState extends State<CameraScreen>
         !_cameraService.controller!.value.isInitialized) {
       return Container(
         color: Colors.black,
-        child: const Center(
+        child: Center(
           child: Text(
-            'カメラを準備中...',
-            style: TextStyle(color: Colors.white, fontSize: 16),
+            AppLocalizations.of(context)!.preparingCamera, // 多言語化対応
+            style: const TextStyle(color: Colors.white, fontSize: 16),
           ),
         ),
       );

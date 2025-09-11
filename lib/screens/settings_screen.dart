@@ -63,8 +63,8 @@ class _SettingsScreenState extends State<SettingsScreen>
             actions: [
               IconButton(
                 icon: const Icon(Icons.refresh_rounded),
-                onPressed: _showResetDialog,
-                tooltip: '設定をリセット',
+                onPressed: () => _showResetDialog(l10n, theme, colorScheme),
+                tooltip: l10n.resetSettings, // 多言語化対応
                 style: IconButton.styleFrom(
                   backgroundColor: Colors.white.withOpacity(0.2),
                   shape: const CircleBorder(),
@@ -147,11 +147,11 @@ class _SettingsScreenState extends State<SettingsScreen>
 
                 // アプリ情報セクション
                 _buildSectionCard(
-                  title: 'アプリ情報',
+                  title: l10n.appInfo, // 多言語化対応
                   icon: Icons.info_rounded,
                   theme: theme,
                   colorScheme: colorScheme,
-                  children: [_buildAppInfoTiles(theme, colorScheme)],
+                  children: [_buildAppInfoTiles(l10n, theme, colorScheme)],
                 ),
 
                 const SizedBox(height: 40),
@@ -339,7 +339,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         ),
       ),
       subtitle: Text(
-        '撮影時にグリッド線を表示します',
+        l10n.gridBorderDescription, // 多言語化対応
         style: theme.textTheme.bodyMedium?.copyWith(
           color: colorScheme.onSurface.withOpacity(0.7),
         ),
@@ -367,7 +367,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         ),
       ),
       subtitle: Text(
-        '現在の色: ${_getColorName(settings.borderColor)}',
+        l10n.currentColor(_getColorName(l10n, settings.borderColor)), // 多言語化対応
         style: theme.textTheme.bodyMedium?.copyWith(
           color: colorScheme.onSurface.withOpacity(0.7),
         ),
@@ -388,7 +388,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           ],
         ),
       ),
-      onTap: () => _showColorPicker(context, theme, colorScheme),
+      onTap: () => _showColorPicker(context, l10n, theme, colorScheme),
     );
   }
 
@@ -404,7 +404,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${l10n.borderWidth}: ${settings.borderWidth.toStringAsFixed(1)}px',
+            '${l10n.borderWidth}: ${l10n.borderWidthValue(settings.borderWidth.toStringAsFixed(1))}', // 多言語化対応
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: colorScheme.onSurface,
@@ -425,7 +425,9 @@ class _SettingsScreenState extends State<SettingsScreen>
               min: 0.5,
               max: 10.0,
               divisions: 19,
-              label: '${settings.borderWidth.toStringAsFixed(1)}px',
+              label: l10n.borderWidthValue(
+                settings.borderWidth.toStringAsFixed(1),
+              ), // 多言語化対応
               onChanged: (value) {
                 SettingsService.instance.updateBorderWidth(value);
               },
@@ -482,7 +484,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ),
               ),
               subtitle: Text(
-                _getQualityDescription(quality),
+                _getQualityDescription(l10n, quality), // 多言語化対応
                 style: TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
               ),
               value: quality,
@@ -500,12 +502,16 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  Widget _buildAppInfoTiles(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildAppInfoTiles(
+    AppLocalizations l10n,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     return Column(
       children: [
         ListTile(
           title: Text(
-            'バージョン',
+            l10n.version, // 多言語化対応
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: colorScheme.onSurface,
@@ -524,14 +530,14 @@ class _SettingsScreenState extends State<SettingsScreen>
         ),
         ListTile(
           title: Text(
-            '開発者',
+            l10n.developer, // 多言語化対応
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: colorScheme.onSurface,
             ),
           ),
           subtitle: Text(
-            'GridShot Camera Team',
+            l10n.teamName, // 多言語化対応
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurface.withOpacity(0.7),
             ),
@@ -540,14 +546,14 @@ class _SettingsScreenState extends State<SettingsScreen>
         ),
         ListTile(
           title: Text(
-            '広告について',
+            l10n.aboutAds, // 多言語化対応
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: colorScheme.onSurface,
             ),
           ),
           subtitle: Text(
-            '本アプリは広告収益によって運営されています',
+            l10n.appDescription, // 多言語化対応
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurface.withOpacity(0.7),
             ),
@@ -560,31 +566,39 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   void _showColorPicker(
     BuildContext context,
+    AppLocalizations l10n,
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('境界線の色を選択'),
+        title: Text(l10n.selectBorderColor), // 多言語化対応
         backgroundColor: theme.cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         content: SizedBox(
           width: 320,
           height: 480,
-          child: _buildColorPicker(theme, colorScheme),
+          child: _buildColorPicker(l10n, theme, colorScheme),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('キャンセル', style: TextStyle(color: colorScheme.primary)),
+            child: Text(
+              l10n.cancel,
+              style: TextStyle(color: colorScheme.primary),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildColorPicker(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildColorPicker(
+    AppLocalizations l10n,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     final colors = [
       // 基本色
       Colors.white, Colors.black, Colors.grey,
@@ -660,21 +674,25 @@ class _SettingsScreenState extends State<SettingsScreen>
     return brightness > 0.5 ? Colors.black : Colors.white;
   }
 
-  void _showResetDialog() {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
+  void _showResetDialog(
+    AppLocalizations l10n,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('設定をリセット'),
+        title: Text(l10n.resetSettings), // 多言語化対応
         backgroundColor: theme.cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        content: const Text('すべての設定を初期値に戻しますか？この操作は取り消せません。'),
+        content: Text(l10n.resetConfirmation), // 多言語化対応
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('キャンセル', style: TextStyle(color: colorScheme.primary)),
+            child: Text(
+              l10n.cancel,
+              style: TextStyle(color: colorScheme.primary),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -683,7 +701,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: const Text('設定がリセットされました'),
+                    content: Text(l10n.settingsReset), // 多言語化対応
                     backgroundColor: colorScheme.primary,
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(
@@ -694,7 +712,10 @@ class _SettingsScreenState extends State<SettingsScreen>
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('リセット', style: TextStyle(color: Colors.white)),
+            child: Text(
+              l10n.reset,
+              style: const TextStyle(color: Colors.white),
+            ), // 多言語化対応
           ),
         ],
       ),
@@ -712,20 +733,21 @@ class _SettingsScreenState extends State<SettingsScreen>
     }
   }
 
-  String _getColorName(Color color) {
-    if (color == Colors.white) return '白';
-    if (color == Colors.black) return '黒';
-    if (color == Colors.red) return '赤';
-    if (color == Colors.blue) return '青';
-    if (color == Colors.green) return '緑';
-    if (color == Colors.yellow) return '黄';
-    if (color == Colors.orange) return 'オレンジ';
-    if (color == Colors.purple) return '紫';
-    if (color == Colors.pink) return 'ピンク';
-    if (color == Colors.cyan) return 'シアン';
-    if (color == Colors.grey) return 'グレー';
-    if (color == const Color(0xFFFF00FF)) return 'マゼンタ';
-    return 'カスタム';
+  String _getColorName(AppLocalizations l10n, Color color) {
+    // 多言語化対応の色名
+    if (color == Colors.white) return l10n.white;
+    if (color == Colors.black) return l10n.black;
+    if (color == Colors.red) return l10n.red;
+    if (color == Colors.blue) return l10n.blue;
+    if (color == Colors.green) return l10n.green;
+    if (color == Colors.yellow) return l10n.yellow;
+    if (color == Colors.orange) return l10n.orange;
+    if (color == Colors.purple) return l10n.purple;
+    if (color == Colors.pink) return l10n.pink;
+    if (color == Colors.cyan) return l10n.cyan;
+    if (color == Colors.grey) return l10n.gray;
+    if (color == const Color(0xFFFF00FF)) return l10n.magenta;
+    return l10n.custom;
   }
 
   String _getQualityDisplayName(AppLocalizations l10n, ImageQuality quality) {
@@ -739,14 +761,15 @@ class _SettingsScreenState extends State<SettingsScreen>
     }
   }
 
-  String _getQualityDescription(ImageQuality quality) {
+  String _getQualityDescription(AppLocalizations l10n, ImageQuality quality) {
+    // 多言語化対応
     switch (quality) {
       case ImageQuality.high:
-        return '最高品質 (95%) - ファイルサイズ大';
+        return l10n.highQuality;
       case ImageQuality.medium:
-        return '中品質 (75%) - バランス良好';
+        return l10n.mediumQuality;
       case ImageQuality.low:
-        return '低品質 (50%) - ファイルサイズ小';
+        return l10n.lowQuality;
     }
   }
 }

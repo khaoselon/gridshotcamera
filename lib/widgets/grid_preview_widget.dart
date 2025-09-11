@@ -452,33 +452,33 @@ class GridPainter extends CustomPainter {
     GridPosition position,
   ) {
     // 撮影中のセルに指示テキストを表示
-    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    //final textPainter = TextPainter(textDirection: TextDirection.ltr);
 
-    textPainter.text = TextSpan(
-      text: '${position.displayString}エリア\nを撮影',
-      style: TextStyle(
-        color: textColor,
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
-        shadows: [
-          Shadow(
-            offset: const Offset(1, 1),
-            blurRadius: 4,
-            color: Colors.black.withOpacity(0.8),
-          ),
-        ],
-      ),
-    );
+    //textPainter.text = TextSpan(
+    //  text: '${position.displayString}エリア\nを撮影',
+    //  style: TextStyle(
+    //    color: textColor,
+    //    fontSize: 16,
+    //    fontWeight: FontWeight.bold,
+    //    shadows: [
+    //      Shadow(
+    //       offset: const Offset(1, 1),
+    //        blurRadius: 4,
+    //        color: Colors.black.withOpacity(0.8),
+    //      ),
+    //    ],
+    //  ),
+    //);
 
-    textPainter.layout();
+    //textPainter.layout();
 
-    final centerX = rect.center.dx;
-    final centerY = rect.center.dy;
+    //final centerX = rect.center.dx;
+    //final centerY = rect.center.dy;
 
-    textPainter.paint(
-      canvas,
-      Offset(centerX - textPainter.width / 2, centerY - textPainter.height / 2),
-    );
+    //textPainter.paint(
+    //  canvas,
+    //  Offset(centerX - textPainter.width / 2, centerY - textPainter.height / 2),
+    //);
   }
 
   void _drawCompletedCells(Canvas canvas, double cellWidth, double cellHeight) {

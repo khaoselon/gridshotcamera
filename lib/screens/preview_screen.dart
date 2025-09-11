@@ -155,8 +155,9 @@ class _PreviewScreenState extends State<PreviewScreen>
       // ハプティックフィードバック
       HapticFeedback.lightImpact();
     } catch (e) {
+      final l10n = AppLocalizations.of(context)!;
       debugPrint('画像保存処理エラー: $e');
-      _showErrorMessage('画像の保存に失敗しました: $e');
+      _showErrorMessage('${l10n.saveFailed}: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -184,6 +185,7 @@ class _PreviewScreenState extends State<PreviewScreen>
 
       _showSuccessMessage(l10n.shareSuccess);
     } catch (e) {
+      final l10n = AppLocalizations.of(context)!;
       _showErrorMessage('画像の共有に失敗しました: $e');
     } finally {
       if (mounted) {
@@ -200,8 +202,8 @@ class _PreviewScreenState extends State<PreviewScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('確認'),
-        content: Text('撮影をやり直しますか？'),
+        title: Text(l10n.confirmation), // 多言語化対応
+        content: Text(l10n.retakePhotos), // 多言語化対応
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -209,7 +211,7 @@ class _PreviewScreenState extends State<PreviewScreen>
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text('撮り直し'),
+            child: Text(l10n.retake), // 多言語化対応
           ),
         ],
       ),
@@ -379,7 +381,10 @@ class _PreviewScreenState extends State<PreviewScreen>
 
           // サブメッセージ
           Text(
-            '${widget.session.gridStyle.totalCells}枚の画像を合成中...',
+            l10n.compositingProgress(
+              widget.session.gridStyle.totalCells,
+              widget.session.gridStyle.totalCells,
+            ), // 多言語化対応
             style: TextStyle(fontSize: 16, color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
@@ -411,7 +416,7 @@ class _PreviewScreenState extends State<PreviewScreen>
 
           // 進行状況テキスト
           Text(
-            '少々お待ちください...',
+            l10n.pleaseWait, // 多言語化対応
             style: TextStyle(fontSize: 14, color: Colors.grey[500]),
           ),
         ],
@@ -439,9 +444,15 @@ class _PreviewScreenState extends State<PreviewScreen>
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            ElevatedButton(onPressed: _startCompositing, child: Text('再試行')),
+            ElevatedButton(
+              onPressed: _startCompositing,
+              child: Text(l10n.retry),
+            ), // 多言語化対応
             const SizedBox(height: 12),
-            TextButton(onPressed: _retakePhoto, child: Text('撮り直し')),
+            TextButton(
+              onPressed: _retakePhoto,
+              child: Text(l10n.retake),
+            ), // 多言語化対応
           ],
         ),
       ),
@@ -513,6 +524,7 @@ class _PreviewScreenState extends State<PreviewScreen>
             File(_compositeImagePath!),
             fit: BoxFit.contain, // 画像全体を表示（contain で完全に表示）
             errorBuilder: (context, error, stackTrace) {
+              final l10n = AppLocalizations.of(context)!;
               return Container(
                 color: Colors.grey[300],
                 child: Column(
@@ -521,7 +533,7 @@ class _PreviewScreenState extends State<PreviewScreen>
                     Icon(Icons.broken_image, size: 48, color: Colors.grey[600]),
                     const SizedBox(height: 8),
                     Text(
-                      '画像の読み込みに失敗しました',
+                      '画像の読み込みに失敗しました', // このエラーメッセージも多言語化可能
                       style: TextStyle(color: Colors.grey[600]),
                     ),
                   ],
@@ -560,16 +572,25 @@ class _PreviewScreenState extends State<PreviewScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '撮影情報',
+              l10n.shootingInfo, // 多言語化対応
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 12),
-            _buildInfoRow('モード', _getModeDisplayName()),
-            _buildInfoRow('グリッドスタイル', widget.session.gridStyle.displayName),
-            _buildInfoRow('撮影枚数', '${widget.session.completedCount}枚'),
-            _buildInfoRow('撮影日時', _formatDateTime(DateTime.now())),
+            _buildInfoRow(l10n.mode, _getModeDisplayName()), // 多言語化対応
+            _buildInfoRow(
+              l10n.gridStyleInfo,
+              widget.session.gridStyle.displayName,
+            ), // 多言語化対応
+            _buildInfoRow(
+              l10n.photoCount,
+              l10n.photosCount(widget.session.completedCount),
+            ), // 多言語化対応
+            _buildInfoRow(
+              l10n.shootingDate,
+              _formatDateTime(DateTime.now()),
+            ), // 多言語化対応
           ],
         ),
       ),
@@ -615,7 +636,7 @@ class _PreviewScreenState extends State<PreviewScreen>
                 )
               : const Icon(Icons.save_alt),
           label: Text(
-            _isSaving ? '保存中...' : l10n.save,
+            _isSaving ? l10n.saving : l10n.save, // 多言語化対応
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           style: ElevatedButton.styleFrom(
@@ -636,7 +657,7 @@ class _PreviewScreenState extends State<PreviewScreen>
                 )
               : const Icon(Icons.share),
           label: Text(
-            _isSharing ? '共有中...' : l10n.share,
+            _isSharing ? l10n.sharing : l10n.share, // 多言語化対応
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           style: OutlinedButton.styleFrom(
@@ -650,7 +671,10 @@ class _PreviewScreenState extends State<PreviewScreen>
         TextButton.icon(
           onPressed: _retakePhoto,
           icon: const Icon(Icons.camera_alt),
-          label: Text('新しく撮影する', style: const TextStyle(fontSize: 16)),
+          label: Text(
+            l10n.takeNewPhoto,
+            style: const TextStyle(fontSize: 16),
+          ), // 多言語化対応
           style: TextButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
@@ -669,11 +693,12 @@ class _PreviewScreenState extends State<PreviewScreen>
   }
 
   String _getModeDisplayName() {
+    final l10n = AppLocalizations.of(context)!;
     switch (widget.session.mode) {
       case ShootingMode.catalog:
-        return 'カタログモード';
+        return l10n.catalogModeDisplay; // 多言語化対応
       case ShootingMode.impossible:
-        return '不可能合成モード';
+        return l10n.impossibleModeDisplay; // 多言語化対応
     }
   }
 
