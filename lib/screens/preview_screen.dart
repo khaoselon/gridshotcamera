@@ -9,7 +9,9 @@ import 'package:gridshot_camera/models/grid_style.dart';
 import 'package:gridshot_camera/services/image_composer_service.dart';
 import 'package:gridshot_camera/services/ad_service.dart';
 import 'package:gridshot_camera/services/settings_service.dart';
+import 'package:gridshot_camera/services/permission_service.dart';
 import 'package:gridshot_camera/widgets/loading_widget.dart';
+import 'package:gridshot_camera/widgets/permission_dialog.dart';
 import 'package:gridshot_camera/screens/camera_screen.dart';
 
 class PreviewScreen extends StatefulWidget {
@@ -118,8 +120,7 @@ class _PreviewScreenState extends State<PreviewScreen>
   }
 
   void _loadBannerAd() {
-    if (!SettingsService.instance.shouldShowAds) return;
-
+    // 広告は常に表示（広告設定を削除したため）
     AdService.instance.createBannerAd(
       onAdLoaded: (ad) {
         if (mounted) {
@@ -139,15 +140,41 @@ class _PreviewScreenState extends State<PreviewScreen>
     );
   }
 
+  /// 初回保存時にストレージ権限をチェック・要求
   Future<void> _saveImage() async {
     if (_compositeImagePath == null || _isSaving) return;
+
+    final l10n = AppLocalizations.of(context)!;
+    final currentSettings = SettingsService.instance.currentSettings;
 
     setState(() {
       _isSaving = true;
     });
 
     try {
-      final l10n = AppLocalizations.of(context)!;
+      // 初回のみストレージ権限を要求
+      if (!currentSettings.hasRequestedStorage) {
+        debugPrint('初回ストレージ権限を要求します');
+
+        // ストレージ権限要求（OSネイティブポップアップ）
+        final permissionResult = await PermissionService.instance
+            .requestStoragePermission();
+
+        // 要求したことを記録（結果に関わらず）
+        await SettingsService.instance.updateStorageRequested(true);
+
+        if (!permissionResult.granted) {
+          debugPrint('ストレージ権限が拒否されました');
+
+          if (mounted) {
+            // 権限が拒否された場合はカスタムダイアログで説明
+            await _showStoragePermissionDialog(permissionResult);
+          }
+          return;
+        }
+
+        debugPrint('ストレージ権限が許可されました');
+      }
 
       // 保存処理は既にImageComposerServiceで実行済み（ギャラリー保存も含む）
       // ここでは成功メッセージの表示のみ
@@ -156,6 +183,7 @@ class _PreviewScreenState extends State<PreviewScreen>
       // ハプティックフィードバック
       HapticFeedback.lightImpact();
     } catch (e) {
+      debugPrint('画像保存エラー: $e');
       _showErrorMessage('画像の保存に失敗しました: $e');
     } finally {
       if (mounted) {
@@ -163,6 +191,63 @@ class _PreviewScreenState extends State<PreviewScreen>
           _isSaving = false;
         });
       }
+    }
+  }
+
+  /// ストレージ権限拒否時のダイアログ表示
+  Future<void> _showStoragePermissionDialog(
+    PermissionResult permissionResult,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PermissionDialog(
+        title: l10n.storagePermission,
+        message: permissionResult.shouldOpenSettings
+            ? 'ストレージ権限が拒否されています。画像を保存するには、設定からストレージ権限を手動で許可してください。'
+            : 'ストレージ権限が必要です。撮影した画像を保存するために許可してください。',
+        shouldOpenSettings: permissionResult.shouldOpenSettings,
+        onRetry: () {
+          Navigator.of(context).pop();
+          // 再度権限チェックを実行
+          _checkStoragePermissionAndSave();
+        },
+        onCancel: () {
+          Navigator.of(context).pop();
+          // プレビュー画面に留まる
+        },
+      ),
+    );
+  }
+
+  /// ストレージ権限を再チェックして保存
+  Future<void> _checkStoragePermissionAndSave() async {
+    try {
+      final permissionResult = await PermissionService.instance
+          .requestStoragePermission();
+
+      if (permissionResult.granted && mounted) {
+        debugPrint('ストレージ権限が再確認されました');
+
+        final l10n = AppLocalizations.of(context)!;
+        _showSuccessMessage(l10n.saveSuccess);
+        HapticFeedback.lightImpact();
+      } else if (mounted) {
+        debugPrint('ストレージ権限がまだ拒否されています');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('ストレージ権限が必要です。設定から許可してください。'),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('ストレージ権限再チェックエラー: $e');
     }
   }
 
@@ -291,10 +376,8 @@ class _PreviewScreenState extends State<PreviewScreen>
         child: Column(
           children: [
             Expanded(child: _buildContent(context, l10n, theme)),
-            if (_isBannerAdReady &&
-                _bannerAd != null &&
-                SettingsService.instance.shouldShowAds)
-              _buildBannerAd(),
+            // バナー広告（常に表示）
+            if (_isBannerAdReady && _bannerAd != null) _buildBannerAd(),
           ],
         ),
       ),

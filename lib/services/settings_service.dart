@@ -101,16 +101,26 @@ class SettingsService extends ChangeNotifier {
     await updateSettings(newSettings);
   }
 
-  /// 広告表示設定を変更
-  Future<void> updateAdDisplay(bool showAds) async {
-    final newSettings = _currentSettings.copyWith(showAds: showAds);
-    await updateSettings(newSettings);
-  }
-
   /// トラッキング許可要求フラグを更新
   Future<void> updateTrackingRequested(bool requested) async {
     final newSettings = _currentSettings.copyWith(
       hasRequestedTracking: requested,
+    );
+    await updateSettings(newSettings);
+  }
+
+  /// カメラ権限要求フラグを更新
+  Future<void> updateCameraRequested(bool requested) async {
+    final newSettings = _currentSettings.copyWith(
+      hasRequestedCamera: requested,
+    );
+    await updateSettings(newSettings);
+  }
+
+  /// ストレージ権限要求フラグを更新
+  Future<void> updateStorageRequested(bool requested) async {
+    final newSettings = _currentSettings.copyWith(
+      hasRequestedStorage: requested,
     );
     await updateSettings(newSettings);
   }
@@ -125,8 +135,12 @@ class SettingsService extends ChangeNotifier {
   /// 特定の設定値を取得するためのヘルパーメソッド
   bool get isJapanese => _currentSettings.languageCode == 'ja';
   bool get isEnglish => _currentSettings.languageCode == 'en';
-  bool get shouldShowAds => _currentSettings.showAds;
   bool get shouldShowGridBorder => _currentSettings.showGridBorder;
+
+  // 権限要求フラグのヘルパーメソッド
+  bool get hasRequestedTracking => _currentSettings.hasRequestedTracking;
+  bool get hasRequestedCamera => _currentSettings.hasRequestedCamera;
+  bool get hasRequestedStorage => _currentSettings.hasRequestedStorage;
 
   /// 設定の妥当性をチェック
   bool validateSettings() {
@@ -157,8 +171,9 @@ class SettingsService extends ChangeNotifier {
     debugPrint('境界線色: ${_currentSettings.borderColor}');
     debugPrint('境界線太さ: ${_currentSettings.borderWidth}');
     debugPrint('画像品質: ${_currentSettings.imageQuality.displayName}');
-    debugPrint('広告表示: ${_currentSettings.showAds}');
     debugPrint('トラッキング許可要求済み: ${_currentSettings.hasRequestedTracking}');
+    debugPrint('カメラ権限要求済み: ${_currentSettings.hasRequestedCamera}');
+    debugPrint('ストレージ権限要求済み: ${_currentSettings.hasRequestedStorage}');
     debugPrint('==================');
   }
 }

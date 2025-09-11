@@ -7,8 +7,10 @@ import 'package:gridshot_camera/screens/camera_screen.dart';
 import 'package:gridshot_camera/screens/settings_screen.dart';
 import 'package:gridshot_camera/services/ad_service.dart';
 import 'package:gridshot_camera/services/settings_service.dart' as svc;
+import 'package:gridshot_camera/services/permission_service.dart';
 import 'package:gridshot_camera/widgets/grid_preview_widget.dart';
 import 'package:gridshot_camera/widgets/mode_selection_card.dart';
+import 'package:gridshot_camera/widgets/permission_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   GridStyle _selectedGridStyle = GridStyle.grid2x2;
   BannerAd? _bannerAd;
   bool _isBannerAdReady = false;
+  bool _isRequestingPermission = false; // 権限要求中フラグ
 
   late AnimationController _fadeController;
   late AnimationController _slideController;
@@ -71,9 +74,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _loadBannerAd() {
-    // 広告表示設定がオンの場合のみ読み込み
-    if (!svc.SettingsService.instance.shouldShowAds) return;
-
+    // 広告は常に表示（広告設定を削除したため）
     AdService.instance.createBannerAd(
       onAdLoaded: (ad) {
         setState(() {
@@ -101,18 +102,140 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
   }
 
+  /// 撮影開始時にカメラ権限をチェック・要求
   Future<void> _startShooting() async {
-    // 撮影開始前にインタースティシャル広告を表示する場合
-    // await AdService.instance.showInterstitialAd();
+    if (_isRequestingPermission) return; // 重複要求を防ぐ
 
-    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    final currentSettings = svc.SettingsService.instance.currentSettings;
 
+    // 初回のみカメラ権限を要求
+    if (!currentSettings.hasRequestedCamera) {
+      setState(() {
+        _isRequestingPermission = true;
+      });
+
+      try {
+        debugPrint('初回カメラ権限を要求します');
+
+        // カメラ権限要求（OSネイティブポップアップ）
+        final hasPermission = await PermissionService.instance
+            .checkAndRequestCameraPermissionSimple();
+
+        // 要求したことを記録（結果に関わらず）
+        await svc.SettingsService.instance.updateCameraRequested(true);
+
+        if (hasPermission) {
+          debugPrint('カメラ権限が許可されました');
+
+          // 権限が許可された場合はカメラ画面へ遷移
+          if (mounted) {
+            _navigateToCamera();
+          }
+        } else {
+          debugPrint('カメラ権限が拒否されました');
+
+          if (mounted) {
+            // 権限が拒否された場合はカスタムダイアログで説明
+            await _showCameraPermissionDialog();
+          }
+        }
+      } catch (e) {
+        debugPrint('カメラ権限要求エラー: $e');
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('カメラ権限の確認中にエラーが発生しました: $e'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isRequestingPermission = false;
+          });
+        }
+      }
+    } else {
+      // 2回目以降は直接カメラ画面へ
+      debugPrint('カメラ権限要求済み。直接カメラ画面へ遷移します');
+      _navigateToCamera();
+    }
+  }
+
+  /// カメラ画面への遷移
+  void _navigateToCamera() {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) =>
             CameraScreen(mode: _selectedMode, gridStyle: _selectedGridStyle),
       ),
     );
+  }
+
+  /// カメラ権限拒否時のダイアログ表示
+  Future<void> _showCameraPermissionDialog() async {
+    final l10n = AppLocalizations.of(context)!;
+
+    // 権限の詳細状態を確認
+    final permissionResult = await PermissionService.instance
+        .requestCameraPermission();
+
+    if (permissionResult.granted) {
+      // 実は許可されていた場合はカメラ画面へ
+      _navigateToCamera();
+      return;
+    }
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PermissionDialog(
+        title: l10n.cameraPermission,
+        message: permissionResult.shouldOpenSettings
+            ? 'カメラ権限が拒否されています。GridShot Cameraを使用するには、設定からカメラ権限を手動で許可してください。'
+            : 'カメラ権限が必要です。写真を撮影するためにカメラへのアクセスを許可してください。',
+        shouldOpenSettings: permissionResult.shouldOpenSettings,
+        onRetry: () {
+          Navigator.of(context).pop();
+          // 再度権限チェックを実行
+          _checkCameraPermissionAndNavigate();
+        },
+        onCancel: () {
+          Navigator.of(context).pop();
+          // ホーム画面に留まる
+        },
+      ),
+    );
+  }
+
+  /// カメラ権限を再チェックしてナビゲート
+  Future<void> _checkCameraPermissionAndNavigate() async {
+    try {
+      final hasPermission = await PermissionService.instance
+          .checkAndRequestCameraPermissionSimple();
+
+      if (hasPermission && mounted) {
+        debugPrint('カメラ権限が再確認されました');
+        _navigateToCamera();
+      } else if (mounted) {
+        debugPrint('カメラ権限がまだ拒否されています');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('カメラ権限が必要です。設定から許可してください。'),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('カメラ権限再チェックエラー: $e');
+    }
   }
 
   void _openSettings() {
@@ -197,10 +320,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
               ),
 
-              // バナー広告
-              if (_isBannerAdReady &&
-                  _bannerAd != null &&
-                  svc.SettingsService.instance.shouldShowAds)
+              // バナー広告（常に表示）
+              if (_isBannerAdReady && _bannerAd != null)
                 Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   alignment: Alignment.center,
@@ -521,7 +642,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ],
       ),
       child: ElevatedButton.icon(
-        onPressed: _startShooting,
+        onPressed: _isRequestingPermission ? null : _startShooting,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
@@ -530,13 +651,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        icon: const Icon(
-          Icons.camera_alt_rounded,
-          size: 28,
-          color: Colors.white,
-        ),
+        icon: _isRequestingPermission
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Icon(
+                Icons.camera_alt_rounded,
+                size: 28,
+                color: Colors.white,
+              ),
         label: Text(
-          l10n.startShooting,
+          _isRequestingPermission ? '権限確認中...' : l10n.startShooting,
           style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,

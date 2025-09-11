@@ -7,8 +7,9 @@ class AppSettings {
   final Color borderColor;
   final double borderWidth;
   final ImageQuality imageQuality;
-  final bool showAds;
   final bool hasRequestedTracking;
+  final bool hasRequestedCamera;
+  final bool hasRequestedStorage;
 
   const AppSettings({
     this.languageCode = 'ja',
@@ -16,8 +17,9 @@ class AppSettings {
     this.borderColor = Colors.white, // const OK
     this.borderWidth = 2.0, // const OK
     this.imageQuality = ImageQuality.high,
-    this.showAds = true,
     this.hasRequestedTracking = false,
+    this.hasRequestedCamera = false,
+    this.hasRequestedStorage = false,
   });
 
   AppSettings copyWith({
@@ -26,8 +28,9 @@ class AppSettings {
     Color? borderColor,
     double? borderWidth,
     ImageQuality? imageQuality,
-    bool? showAds,
     bool? hasRequestedTracking,
+    bool? hasRequestedCamera,
+    bool? hasRequestedStorage,
   }) {
     return AppSettings(
       languageCode: languageCode ?? this.languageCode,
@@ -35,8 +38,9 @@ class AppSettings {
       borderColor: borderColor ?? this.borderColor,
       borderWidth: borderWidth ?? this.borderWidth,
       imageQuality: imageQuality ?? this.imageQuality,
-      showAds: showAds ?? this.showAds,
       hasRequestedTracking: hasRequestedTracking ?? this.hasRequestedTracking,
+      hasRequestedCamera: hasRequestedCamera ?? this.hasRequestedCamera,
+      hasRequestedStorage: hasRequestedStorage ?? this.hasRequestedStorage,
     );
   }
 
@@ -47,8 +51,9 @@ class AppSettings {
       'borderColor': borderColor.value,
       'borderWidth': borderWidth,
       'imageQuality': imageQuality.name,
-      'showAds': showAds,
       'hasRequestedTracking': hasRequestedTracking,
+      'hasRequestedCamera': hasRequestedCamera,
+      'hasRequestedStorage': hasRequestedStorage,
     };
   }
 
@@ -62,8 +67,9 @@ class AppSettings {
         (e) => e.name == (map['imageQuality'] ?? ''),
         orElse: () => ImageQuality.high,
       ),
-      showAds: map['showAds'] ?? true,
       hasRequestedTracking: map['hasRequestedTracking'] ?? false,
+      hasRequestedCamera: map['hasRequestedCamera'] ?? false,
+      hasRequestedStorage: map['hasRequestedStorage'] ?? false,
     );
   }
 }

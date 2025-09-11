@@ -145,19 +145,6 @@ class _SettingsScreenState extends State<SettingsScreen>
 
                 const SizedBox(height: 20),
 
-                // 広告設定セクション
-                _buildSectionCard(
-                  title: l10n.adSettings,
-                  icon: Icons.ads_click_rounded,
-                  theme: theme,
-                  colorScheme: colorScheme,
-                  children: [
-                    _buildAdSettingsTile(settings, l10n, theme, colorScheme),
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-
                 // アプリ情報セクション
                 _buildSectionCard(
                   title: 'アプリ情報',
@@ -513,34 +500,6 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  Widget _buildAdSettingsTile(
-    AppSettings settings,
-    AppLocalizations l10n,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
-    return SwitchListTile(
-      title: Text(
-        l10n.showAds,
-        style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w600,
-          color: colorScheme.onSurface,
-        ),
-      ),
-      subtitle: Text(
-        '広告を表示してアプリの開発を支援する',
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: colorScheme.onSurface.withOpacity(0.7),
-        ),
-      ),
-      value: settings.showAds,
-      activeColor: colorScheme.primary,
-      onChanged: (value) {
-        SettingsService.instance.updateAdDisplay(value);
-      },
-    );
-  }
-
   Widget _buildAppInfoTiles(ThemeData theme, ColorScheme colorScheme) {
     return Column(
       children: [
@@ -578,6 +537,22 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
           ),
           trailing: Icon(Icons.people_rounded, color: colorScheme.primary),
+        ),
+        ListTile(
+          title: Text(
+            '広告について',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          subtitle: Text(
+            '本アプリは広告収益によって運営されています',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurface.withOpacity(0.7),
+            ),
+          ),
+          trailing: Icon(Icons.ads_click_rounded, color: colorScheme.primary),
         ),
       ],
     );

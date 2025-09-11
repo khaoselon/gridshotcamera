@@ -8,13 +8,11 @@ import '../l10n/app_localizations.dart';
 import 'package:gridshot_camera/models/grid_style.dart';
 import 'package:gridshot_camera/models/shooting_mode.dart';
 import 'package:gridshot_camera/services/camera_service.dart';
-import 'package:gridshot_camera/services/permission_service.dart';
 import 'package:gridshot_camera/services/ad_service.dart';
 import 'package:gridshot_camera/services/settings_service.dart';
 import 'package:gridshot_camera/screens/preview_screen.dart';
 import 'package:gridshot_camera/widgets/grid_preview_widget.dart';
 import 'package:gridshot_camera/widgets/loading_widget.dart';
-import 'package:gridshot_camera/widgets/permission_dialog.dart';
 
 class CameraScreen extends StatefulWidget {
   final ShootingMode mode;
@@ -59,7 +57,7 @@ class _CameraScreenState extends State<CameraScreen>
 
     _initializeSession();
     _initializeAnimations();
-    _initializeCamera();
+    _initializeCamera(); // 権限チェックを削除し直接初期化
     _loadBannerAd();
   }
 
@@ -108,6 +106,7 @@ class _CameraScreenState extends State<CameraScreen>
     );
   }
 
+  /// カメラ初期化（権限チェックを削除）
   Future<void> _initializeCamera() async {
     if (_isScreenDisposed) return;
 
@@ -117,25 +116,9 @@ class _CameraScreenState extends State<CameraScreen>
     });
 
     try {
-      debugPrint('カメラ権限を確認します');
+      debugPrint('カメラサービスを初期化します');
 
-      // シンプルなカメラ権限確認（OSネイティブポップアップ優先）
-      final hasPermission = await PermissionService.instance
-          .checkAndRequestCameraPermissionSimple();
-
-      if (!hasPermission) {
-        debugPrint('カメラ権限が拒否されました');
-
-        if (mounted && !_isScreenDisposed) {
-          // 権限が拒否された場合のみカスタムダイアログを表示
-          await _showPermissionDeniedDialog();
-        }
-        return;
-      }
-
-      debugPrint('カメラ権限が許可されました。カメラサービスを初期化します');
-
-      // カメラサービス初期化
+      // カメラサービス初期化（権限はホーム画面で確認済み）
       _cameraService = CameraService();
       _cameraService.addListener(_onCameraServiceChanged);
 
@@ -186,47 +169,8 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
-  /// 権限拒否時のダイアログ表示（カスタムダイアログは最後の手段として使用）
-  Future<void> _showPermissionDeniedDialog() async {
-    final l10n = AppLocalizations.of(context)!;
-
-    // 権限の状態を確認
-    final permissionResult =
-        await PermissionService.instance.requestCameraPermission();
-
-    if (permissionResult.granted) {
-      // 許可された場合は再試行
-      _initializeCamera();
-      return;
-    }
-
-    if (!mounted || _isScreenDisposed) return;
-
-    // 権限が拒否された場合のメッセージを表示
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => PermissionDialog(
-        title: l10n.cameraPermission,
-        message: permissionResult.shouldOpenSettings
-            ? 'カメラ権限が拒否されています。設定から手動で許可してください。'
-            : 'カメラ権限が必要です。アプリを使用するために許可してください。',
-        shouldOpenSettings: permissionResult.shouldOpenSettings,
-        onRetry: () {
-          Navigator.of(context).pop();
-          _initializeCamera();
-        },
-        onCancel: () {
-          Navigator.of(context).pop();
-          Navigator.of(context).pop();
-        },
-      ),
-    );
-  }
-
   void _loadBannerAd() {
-    if (!SettingsService.instance.shouldShowAds) return;
-
+    // 広告は常に表示（広告設定を削除したため）
     AdService.instance.createBannerAd(
       onAdLoaded: (ad) {
         if (mounted && !_isScreenDisposed) {
@@ -319,10 +263,8 @@ class _CameraScreenState extends State<CameraScreen>
   Future<void> _onShootingCompleted() async {
     if (_isScreenDisposed) return;
 
-    // 完了時の広告表示（設定で有効な場合）
-    if (SettingsService.instance.shouldShowAds) {
-      await AdService.instance.showInterstitialAd();
-    }
+    // 完了時の広告表示
+    await AdService.instance.showInterstitialAd();
 
     if (!mounted || _isScreenDisposed) return;
 
@@ -459,7 +401,7 @@ class _CameraScreenState extends State<CameraScreen>
 
     return Stack(
       children: [
-        // カメラプレビュー（修正版）
+        // カメラプレビュー
         _buildCameraPreview(),
 
         // フラッシュオーバーレイ
@@ -476,17 +418,14 @@ class _CameraScreenState extends State<CameraScreen>
           },
         ),
 
-        // グリッドオーバーレイ（修正版）
+        // グリッドオーバーレイ
         _buildGridOverlay(),
 
         // UI コントロール
         _buildUIControls(l10n, theme),
 
-        // バナー広告
-        if (_isBannerAdReady &&
-            _bannerAd != null &&
-            SettingsService.instance.shouldShowAds)
-          _buildBannerAd(),
+        // バナー広告（常に表示）
+        if (_isBannerAdReady && _bannerAd != null) _buildBannerAd(),
       ],
     );
   }
@@ -530,7 +469,6 @@ class _CameraScreenState extends State<CameraScreen>
     );
   }
 
-  // 修正されたカメラプレビュー（より厳密な状態チェック）
   Widget _buildCameraPreview() {
     // より厳密な状態チェック
     if (!_cameraService.isInitialized ||
@@ -592,7 +530,6 @@ class _CameraScreenState extends State<CameraScreen>
     );
   }
 
-  // 修正されたグリッドオーバーレイ
   Widget _buildGridOverlay() {
     final settings = SettingsService.instance.currentSettings;
 
@@ -608,7 +545,7 @@ class _CameraScreenState extends State<CameraScreen>
                 : Colors.transparent,
             borderWidth: settings.showGridBorder ? settings.borderWidth : 0,
             showCellNumbers: true,
-            shootingMode: widget.mode, // 撮影モードを渡す
+            shootingMode: widget.mode,
           );
         },
       ),
@@ -647,7 +584,7 @@ class _CameraScreenState extends State<CameraScreen>
 
           const Spacer(),
 
-          // 撮影情報（修正版）
+          // 撮影情報
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(

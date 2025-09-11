@@ -54,7 +54,6 @@ class GridShotCameraApp extends StatefulWidget {
 class _GridShotCameraAppState extends State<GridShotCameraApp>
     with WidgetsBindingObserver {
   late AppSettings _currentSettings;
-  bool _hasRequestedATT = false;
 
   @override
   void initState() {
@@ -65,12 +64,9 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
     // 設定変更を監視
     SettingsService.instance.addListener(_onSettingsChanged);
 
-    // アプリ起動後にトラッキング許可を要求（適切なタイミングで）
+    // アプリ起動後数秒後にトラッキング許可を要求
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 少し遅らせてUIが完全に構築された後に実行
-      Future.delayed(const Duration(milliseconds: 500), () {
-        _requestTrackingPermissionIfNeeded();
-      });
+      _scheduleTrackingPermissionRequest();
     });
   }
 
@@ -95,12 +91,6 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
       case AppLifecycleState.resumed:
         // アプリがフォアグラウンドに戻った時の処理
         AdService.instance.resumeAds();
-        // 設定から戻ってきた場合のトラッキング許可チェック
-        if (Platform.isIOS && !_hasRequestedATT) {
-          Future.delayed(const Duration(milliseconds: 300), () {
-            _requestTrackingPermissionIfNeeded();
-          });
-        }
         break;
       case AppLifecycleState.paused:
         // アプリがバックグラウンドに移った時の処理
@@ -115,55 +105,56 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
     }
   }
 
-  Future<void> _requestTrackingPermissionIfNeeded() async {
+  /// アプリ初回起動時数秒後にトラッキング許可を要求
+  Future<void> _scheduleTrackingPermissionRequest() async {
     // iOS でのみ App Tracking Transparency の許可を要求
-    if (Platform.isIOS &&
-        !_currentSettings.hasRequestedTracking &&
-        !_hasRequestedATT) {
-      try {
-        _hasRequestedATT = true; // 重複要求を防ぐ
+    if (Platform.isIOS && !_currentSettings.hasRequestedTracking) {
+      debugPrint('3秒後にApp Tracking Transparencyを要求します');
 
-        debugPrint('App Tracking Transparency の状態を確認中...');
+      // アプリ起動後3秒待機（UIが完全に表示されてから）
+      await Future.delayed(const Duration(seconds: 3));
 
-        // 現在の許可状況を確認
-        final currentStatus =
-            await AppTrackingTransparency.trackingAuthorizationStatus;
-        debugPrint('現在のATT状況: $currentStatus');
+      if (!mounted) return;
 
-        // まだ決定されていない場合のみ要求
-        if (currentStatus == TrackingStatus.notDetermined) {
-          debugPrint('App Tracking Transparency の許可を要求します');
+      await _requestTrackingPermission();
+    }
+  }
 
-          // OSネイティブのATTポップアップを表示
-          final status =
-              await AppTrackingTransparency.requestTrackingAuthorization();
-          debugPrint('ATT要求結果: $status');
+  /// App Tracking Transparency の許可要求を実行
+  Future<void> _requestTrackingPermission() async {
+    try {
+      debugPrint('App Tracking Transparency の状態を確認中...');
 
-          // 許可要求したことを記録
-          await SettingsService.instance.updateSettings(
-            _currentSettings.copyWith(hasRequestedTracking: true),
-          );
+      // 現在の許可状況を確認
+      final currentStatus =
+          await AppTrackingTransparency.trackingAuthorizationStatus;
+      debugPrint('現在のATT状況: $currentStatus');
 
-          // 許可状況に応じて広告設定を更新
-          AdService.instance.updateTrackingStatus(status);
-        } else {
-          debugPrint('ATTは既に決定済み: $currentStatus');
+      // まだ決定されていない場合のみ要求
+      if (currentStatus == TrackingStatus.notDetermined) {
+        debugPrint('App Tracking Transparency の許可を要求します');
 
-          // 既に決定済みの場合は記録を更新
-          await SettingsService.instance.updateSettings(
-            _currentSettings.copyWith(hasRequestedTracking: true),
-          );
+        // OSネイティブのATTポップアップを表示
+        final status =
+            await AppTrackingTransparency.requestTrackingAuthorization();
+        debugPrint('ATT要求結果: $status');
 
-          // 広告設定を更新
-          AdService.instance.updateTrackingStatus(currentStatus);
-        }
-      } catch (e) {
-        debugPrint('App Tracking Transparency要求エラー: $e');
-        // エラーが発生した場合も記録を更新（無限ループを防ぐ）
-        await SettingsService.instance.updateSettings(
-          _currentSettings.copyWith(hasRequestedTracking: true),
-        );
+        // 許可状況に応じて広告設定を更新
+        AdService.instance.updateTrackingStatus(status);
+      } else {
+        debugPrint('ATTは既に決定済み: $currentStatus');
+
+        // 広告設定を更新
+        AdService.instance.updateTrackingStatus(currentStatus);
       }
+
+      // 許可要求したことを記録（結果に関わらず）
+      await SettingsService.instance.updateTrackingRequested(true);
+    } catch (e) {
+      debugPrint('App Tracking Transparency要求エラー: $e');
+
+      // エラーが発生した場合も記録を更新（無限ループを防ぐ）
+      await SettingsService.instance.updateTrackingRequested(true);
     }
   }
 
@@ -359,6 +350,7 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
       darkTheme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
+
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF9C88FF),
           brightness: Brightness.dark,
@@ -371,6 +363,7 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
           onSurface: Colors.white,
           onBackground: Colors.white,
         ),
+
         appBarTheme: AppBarTheme(
           backgroundColor: const Color(0xFF1F1F1F),
           foregroundColor: Colors.white,
@@ -383,6 +376,7 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
             letterSpacing: 0.5,
           ),
         ),
+
         cardTheme: CardThemeData(
           elevation: 8,
           shadowColor: const Color(0xFF9C88FF).withOpacity(0.3),
@@ -391,6 +385,7 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
             borderRadius: BorderRadius.circular(16),
           ),
         ),
+
         fontFamily: 'NotoSansJP',
         scaffoldBackgroundColor: const Color(0xFF121212),
       ),
