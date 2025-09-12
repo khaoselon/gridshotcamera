@@ -164,6 +164,11 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
       return null; // null を返すとシステム言語が自動選択される
     } else {
       // ユーザーが明示的に選択した言語を使用
+      // 中国語繁体字の特別処理
+      if (_currentSettings.languageCode == 'zh-Hant') {
+        return const Locale('zh', 'Hant');
+      }
+
       return Locale(_currentSettings.languageCode);
     }
   }

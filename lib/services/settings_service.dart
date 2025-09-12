@@ -145,8 +145,21 @@ class SettingsService extends ChangeNotifier {
   /// 設定の妥当性をチェック
   bool validateSettings() {
     try {
-      // 言語コードの妥当性チェック
-      if (!['ja', 'en'].contains(_currentSettings.languageCode)) {
+      // 言語コードの妥当性チェック（修正版）
+      final validLanguageCodes = [
+        'system',
+        'ja',
+        'en',
+        'it',
+        'es',
+        'de',
+        'ko',
+        'pt',
+        'zh-Hant',
+      ];
+
+      if (!validLanguageCodes.contains(_currentSettings.languageCode)) {
+        debugPrint('無効な言語コード: ${_currentSettings.languageCode}');
         return false;
       }
 
