@@ -12,10 +12,10 @@ class AppSettings {
   final bool hasRequestedStorage;
 
   const AppSettings({
-    this.languageCode = 'ja',
+    this.languageCode = 'system', // ← 'ja' から 'system' に変更
     this.showGridBorder = true,
-    this.borderColor = Colors.white, // const OK
-    this.borderWidth = 2.0, // const OK
+    this.borderColor = Colors.white,
+    this.borderWidth = 2.0,
     this.imageQuality = ImageQuality.high,
     this.hasRequestedTracking = false,
     this.hasRequestedCamera = false,
@@ -59,7 +59,7 @@ class AppSettings {
 
   static AppSettings fromMap(Map<String, dynamic> map) {
     return AppSettings(
-      languageCode: map['languageCode'] ?? 'ja',
+      languageCode: map['languageCode'] ?? 'system', // ← デフォルトを 'system' に
       showGridBorder: map['showGridBorder'] ?? true,
       borderColor: Color(map['borderColor'] ?? Colors.white.value),
       borderWidth: (map['borderWidth'] ?? 2.0).toDouble(),

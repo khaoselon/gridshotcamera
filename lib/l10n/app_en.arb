@@ -1,9 +1,9 @@
 {
   "appTitle": "GridShot Camera",
   "homeTitle": "Select Shooting Mode",
-  "catalogMode": "Catalog Mode",
+  "catalogMode": "Catalog Shot",
   "catalogModeDescription": "Capture different subjects in each grid cell for cataloging",
-  "impossibleMode": "Impossible Composite Mode",
+  "impossibleMode": "Grid Fusion",
   "impossibleModeDescription": "Shoot the same scene in grid order to create impossible compositions",
   "gridStyle": "Grid Style",
   "grid2x2": "2×2",
@@ -80,8 +80,8 @@
   "shootingDate": "Shooting Date",
   "saving": "Saving...",
   "sharing": "Sharing...",
-  "catalogModeDisplay": "Catalog Mode",
-  "impossibleModeDisplay": "Impossible Composite Mode",
+  "catalogModeDisplay": "Catalog Shot",
+  "impossibleModeDisplay": "Grid Fusion",
   "resetSettings": "Reset Settings",
   "appInfo": "App Information",
   "version": "Version",
@@ -164,5 +164,6 @@
   "darkColor": "Dark Color",
   "redTone": "Red Tone",
   "greenTone": "Green Tone",
-  "blueTone": "Blue Tone"
+  "blueTone": "Blue Tone",
+  "systemDefault": "System Default",
 }

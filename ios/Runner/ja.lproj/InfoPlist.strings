@@ -1,0 +1,14 @@
+/* カメラ権限の説明 */
+"NSCameraUsageDescription" = "写真を撮影するためにカメラアクセスが必要です。";
+
+/* マイク権限の説明 */
+"NSMicrophoneUsageDescription" = "カメラ機能を使用するためにマイクへのアクセスが必要です。";
+
+/* 写真ライブラリ追加権限の説明 */
+"NSPhotoLibraryAddUsageDescription" = "撮影した写真を写真ライブラリに保存するために許可が必要です。";
+
+/* 写真ライブラリアクセス権限の説明 */
+"NSPhotoLibraryUsageDescription" = "撮影した写真を保存するために写真ライブラリへのアクセスが必要です。";
+
+/* アプリトラッキング権限の説明 */
+"NSUserTrackingUsageDescription" = "アプリの機能向上のため、他のアプリやウェブサイトでのアクティビティを追跡する許可をお願いします。";

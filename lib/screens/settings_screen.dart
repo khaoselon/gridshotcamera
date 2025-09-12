@@ -266,7 +266,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         ),
       ),
       subtitle: Text(
-        _getLanguageDisplayName(settings.languageCode),
+        _getLanguageDisplayName(settings.languageCode, l10n),
         style: theme.textTheme.bodyMedium?.copyWith(
           color: colorScheme.onSurface.withOpacity(0.7),
         ),
@@ -291,6 +291,17 @@ class _SettingsScreenState extends State<SettingsScreen>
           dropdownColor: theme.cardColor,
           borderRadius: BorderRadius.circular(12),
           items: [
+            DropdownMenuItem(
+              value: 'system',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('🌍'),
+                  const SizedBox(width: 8),
+                  Text('System Default'), // TODO: 多言語化
+                ],
+              ),
+            ),
             DropdownMenuItem(
               value: 'ja',
               child: Row(
@@ -722,8 +733,11 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  String _getLanguageDisplayName(String languageCode) {
+  /// 言語表示名を取得（修正版）
+  String _getLanguageDisplayName(String languageCode, AppLocalizations l10n) {
     switch (languageCode) {
+      case 'system':
+        return 'System Default'; // TODO: 多言語化
       case 'ja':
         return '日本語';
       case 'en':

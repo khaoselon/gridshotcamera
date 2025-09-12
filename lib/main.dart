@@ -158,6 +158,16 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
     }
   }
 
+  Locale? _getEffectiveLocale() {
+    if (_currentSettings.languageCode == 'system') {
+      // システム言語を使用
+      return null; // null を返すとシステム言語が自動選択される
+    } else {
+      // ユーザーが明示的に選択した言語を使用
+      return Locale(_currentSettings.languageCode);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -175,7 +185,7 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
         Locale('ja'), // 日本語
         Locale('en'), // 英語
       ],
-      locale: Locale(_currentSettings.languageCode),
+      locale: _getEffectiveLocale(),
 
       // 明るいテーマ設定
       theme: ThemeData(

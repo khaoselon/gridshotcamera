@@ -15,13 +15,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get homeTitle => '撮影モード選択';
 
   @override
-  String get catalogMode => 'カタログモード';
+  String get catalogMode => 'ならべ撮り撮影';
 
   @override
   String get catalogModeDescription => '複数の被写体を各マスに収めて一覧化';
 
   @override
-  String get impossibleMode => '不可能合成モード';
+  String get impossibleMode => 'グリッド合成撮影';
 
   @override
   String get impossibleModeDescription => '同じシーンを分割順に撮影して合成';
@@ -213,10 +213,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sharing => '共有中...';
 
   @override
-  String get catalogModeDisplay => 'カタログモード';
+  String get catalogModeDisplay => 'ならべ撮り撮影';
 
   @override
-  String get impossibleModeDisplay => '不可能合成モード';
+  String get impossibleModeDisplay => 'グリッド合成撮影';
 
   @override
   String get resetSettings => '設定をリセット';

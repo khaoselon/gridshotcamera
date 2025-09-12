@@ -46,9 +46,7 @@ class _CameraScreenState extends State<CameraScreen>
   double _maxZoom = 1.0;
   FlashMode _currentFlashMode = FlashMode.auto;
 
-  // 広告関連
-  BannerAd? _bannerAd;
-  bool _isBannerAdReady = false;
+  // 広告関連は削除（カメラ画面では広告を表示しない）
 
   @override
   void initState() {
@@ -58,7 +56,8 @@ class _CameraScreenState extends State<CameraScreen>
     _initializeSession();
     _initializeAnimations();
     _initializeCamera(); // 権限チェックを削除し直接初期化
-    _loadBannerAd();
+
+    // バナー広告のロードは削除（カメラ画面では広告を表示しない）
   }
 
   @override
@@ -73,7 +72,7 @@ class _CameraScreenState extends State<CameraScreen>
     // CameraServiceの破棄
     _cameraService.dispose();
 
-    _bannerAd?.dispose();
+    // バナー広告の破棄は削除（元々作成していないため）
     super.dispose();
     debugPrint('CameraScreen: dispose完了');
   }
@@ -169,26 +168,7 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
-  void _loadBannerAd() {
-    // 広告は常に表示（広告設定を削除したため）
-    AdService.instance.createBannerAd(
-      onAdLoaded: (ad) {
-        if (mounted && !_isScreenDisposed) {
-          setState(() {
-            _bannerAd = ad as BannerAd;
-            _isBannerAdReady = true;
-          });
-        }
-      },
-      onAdFailedToLoad: (ad, error) {
-        if (mounted && !_isScreenDisposed) {
-          setState(() {
-            _isBannerAdReady = false;
-          });
-        }
-      },
-    );
-  }
+  // バナー広告のロードメソッドは削除
 
   void _updateProgressAnimation() {
     if (_isScreenDisposed) return;
@@ -424,8 +404,7 @@ class _CameraScreenState extends State<CameraScreen>
         // UI コントロール
         _buildUIControls(l10n, theme),
 
-        // バナー広告（常に表示）
-        if (_isBannerAdReady && _bannerAd != null) _buildBannerAd(),
+        // バナー広告は削除（カメラ画面では表示しない）
       ],
     );
   }
@@ -736,19 +715,7 @@ class _CameraScreenState extends State<CameraScreen>
     );
   }
 
-  Widget _buildBannerAd() {
-    return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        alignment: Alignment.center,
-        width: _bannerAd!.size.width.toDouble(),
-        height: _bannerAd!.size.height.toDouble(),
-        child: AdWidget(ad: _bannerAd!),
-      ),
-    );
-  }
+  // バナー広告のビルドメソッドは削除
 
   IconData _getFlashIcon() {
     switch (_currentFlashMode) {

@@ -15,14 +15,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeTitle => 'Select Shooting Mode';
 
   @override
-  String get catalogMode => 'Catalog Mode';
+  String get catalogMode => 'Catalog Shot';
 
   @override
   String get catalogModeDescription =>
       'Capture different subjects in each grid cell for cataloging';
 
   @override
-  String get impossibleMode => 'Impossible Composite Mode';
+  String get impossibleMode => 'Grid Fusion';
 
   @override
   String get impossibleModeDescription =>
@@ -216,10 +216,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sharing => 'Sharing...';
 
   @override
-  String get catalogModeDisplay => 'Catalog Mode';
+  String get catalogModeDisplay => 'Catalog Shot';
 
   @override
-  String get impossibleModeDisplay => 'Impossible Composite Mode';
+  String get impossibleModeDisplay => 'Grid Fusion';
 
   @override
   String get resetSettings => 'Reset Settings';

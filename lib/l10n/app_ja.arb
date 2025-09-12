@@ -1,9 +1,9 @@
 {
   "appTitle": "GridShot Camera",
   "homeTitle": "撮影モード選択",
-  "catalogMode": "カタログモード",
+  "catalogMode": "ならべ撮り撮影",
   "catalogModeDescription": "複数の被写体を各マスに収めて一覧化",
-  "impossibleMode": "不可能合成モード", 
+  "impossibleMode": "グリッド合成撮影", 
   "impossibleModeDescription": "同じシーンを分割順に撮影して合成",
   "gridStyle": "グリッドスタイル",
   "grid2x2": "2×2",
@@ -80,8 +80,8 @@
   "shootingDate": "撮影日時",
   "saving": "保存中...",
   "sharing": "共有中...",
-  "catalogModeDisplay": "カタログモード",
-  "impossibleModeDisplay": "不可能合成モード",
+  "catalogModeDisplay": "ならべ撮り撮影",
+  "impossibleModeDisplay": "グリッド合成撮影",
   "resetSettings": "設定をリセット",
   "appInfo": "アプリ情報",
   "version": "バージョン",
@@ -164,5 +164,6 @@
   "darkColor": "暗い色",
   "redTone": "赤系",
   "greenTone": "緑系",
-  "blueTone": "青系"
+  "blueTone": "青系",
+  "systemDefaultJa": "システムデフォルト"
 }
