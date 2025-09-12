@@ -298,7 +298,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 children: [
                   const Text('🌍'),
                   const SizedBox(width: 8),
-                  Text('System Default'), // TODO: 多言語化
+                  Text('System Default'), // TODO: 多言語化対応
                 ],
               ),
             ),
@@ -321,6 +321,72 @@ class _SettingsScreenState extends State<SettingsScreen>
                   const Text('🇺🇸'),
                   const SizedBox(width: 8),
                   Text(l10n.english),
+                ],
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'it',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('🇮🇹'),
+                  const SizedBox(width: 8),
+                  const Text('Italiano'),
+                ],
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'es',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('🇪🇸'),
+                  const SizedBox(width: 8),
+                  const Text('Español'),
+                ],
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'de',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('🇩🇪'),
+                  const SizedBox(width: 8),
+                  const Text('Deutsch'),
+                ],
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'ko',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('🇰🇷'),
+                  const SizedBox(width: 8),
+                  const Text('한국어'),
+                ],
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'pt',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('🇵🇹'),
+                  const SizedBox(width: 8),
+                  const Text('Português'),
+                ],
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'zh-Hant',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('🇹🇼'),
+                  const SizedBox(width: 8),
+                  const Text('繁體中文'),
                 ],
               ),
             ),
@@ -742,6 +808,18 @@ class _SettingsScreenState extends State<SettingsScreen>
         return '日本語';
       case 'en':
         return 'English';
+      case 'it':
+        return 'Italiano';
+      case 'es':
+        return 'Español';
+      case 'de':
+        return 'Deutsch';
+      case 'ko':
+        return '한국어';
+      case 'pt':
+        return 'Português';
+      case 'zh-Hant':
+        return '繁體中文';
       default:
         return languageCode;
     }

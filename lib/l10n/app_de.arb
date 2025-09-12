@@ -1,0 +1,168 @@
+{
+  "appTitle": "GridShot Camera",
+  "homeTitle": "Aufnahmemodus Auswählen",
+  "catalogMode": "Katalog-Aufnahme",
+  "catalogModeDescription": "Erfassen Sie verschiedene Motive in jeder Rasterzelle zum Katalogisieren",
+  "impossibleMode": "Raster-Fusion",
+  "impossibleModeDescription": "Fotografieren Sie die gleiche Szene in Rasterreihenfolge, um unmögliche Kompositionen zu erstellen",
+  "gridStyle": "Rasterstil",
+  "grid2x2": "2×2",
+  "grid2x3": "2×3",
+  "grid3x2": "3×2",
+  "grid3x3": "3×3",
+  "startShooting": "Aufnahme Starten",
+  "settings": "Einstellungen",
+  "cameraTitle": "Aufnahme",
+  "currentPosition": "Aktuell: {position}",
+  "@currentPosition": {
+    "placeholders": {
+      "position": {
+        "type": "String"
+      }
+    }
+  },
+  "tapToShoot": "Tippen zum Fotografieren",
+  "retake": "Wiederholen",
+  "next": "Weiter",
+  "complete": "Fertig",
+  "previewTitle": "Vorschau",
+  "save": "Speichern",
+  "share": "Teilen",
+  "cancel": "Abbrechen",
+  "settingsTitle": "Einstellungen",
+  "language": "Sprache",
+  "japanese": "日本語",
+  "english": "English",
+  "gridBorder": "Rasterrahmen",
+  "borderColor": "Rahmenfarbe",
+  "borderWidth": "Rahmenbreite",
+  "imageQuality": "Bildqualität",
+  "high": "Hoch",
+  "medium": "Mittel",
+  "low": "Niedrig",
+  "adSettings": "Werbeeinstellungen",
+  "showAds": "Werbung Anzeigen",
+  "cameraPermission": "Kamera-Berechtigung",
+  "cameraPermissionMessage": "Kamerazugriff ist erforderlich, um Fotos zu machen. Bitte erlauben Sie den Kamerazugriff in den Einstellungen.",
+  "storagePermission": "Speicher-Berechtigung",
+  "storagePermissionMessage": "Speicherzugriff ist erforderlich, um Fotos zu speichern.",
+  "openSettings": "Einstellungen Öffnen",
+  "error": "Fehler",
+  "saveSuccess": "Bild erfolgreich gespeichert",
+  "saveFailed": "Speichern des Bildes fehlgeschlagen",
+  "shareSuccess": "Bild erfolgreich geteilt",
+  "loading": "Laden...",
+  "processing": "Verarbeitung...",
+  "compositing": "Komposition...",
+  "trackingPermissionTitle": "App-Tracking-Berechtigung",
+  "trackingPermissionMessage": "Erlauben Sie App-Tracking über andere Apps, um Anzeigen zu personalisieren.",
+  "allow": "Erlauben",
+  "dontAllow": "Nicht Erlauben",
+  "selectPhotoStyle": "Wählen Sie Ihren gewünschten Fotostil",
+  "shootingMode": "Aufnahmemodus",
+  "selectedGrid": "Ausgewählt: {gridStyle}",
+  "@selectedGrid": {
+    "placeholders": {
+      "gridStyle": {
+        "type": "String"
+      }
+    }
+  },
+  "checkingPermissions": "Berechtigungen werden überprüft...",
+  "confirmation": "Bestätigung",
+  "retakePhotos": "Möchten Sie die Fotos erneut aufnehmen?",
+  "takeNewPhoto": "Neues Foto Aufnehmen",
+  "shootingInfo": "Aufnahme-Informationen",
+  "mode": "Modus",
+  "gridStyleInfo": "Rasterstil",
+  "photoCount": "Fotoanzahl",
+  "shootingDate": "Aufnahmedatum",
+  "saving": "Speichern...",
+  "sharing": "Teilen...",
+  "catalogModeDisplay": "Katalog-Aufnahme",
+  "impossibleModeDisplay": "Raster-Fusion",
+  "resetSettings": "Einstellungen Zurücksetzen",
+  "appInfo": "App-Informationen",
+  "version": "Version",
+  "developer": "Entwickler",
+  "aboutAds": "Über Werbung",
+  "selectBorderColor": "Rahmenfarbe Auswählen",
+  "resetConfirmation": "Alle Einstellungen auf Standardwerte zurücksetzen? Diese Aktion kann nicht rückgängig gemacht werden.",
+  "reset": "Zurücksetzen",
+  "settingsReset": "Einstellungen wurden zurückgesetzt",
+  "retry": "Wiederholen",
+  "preparingCamera": "Kamera wird vorbereitet...",
+  "cameraError": "Kamera-Fehler",
+  "initializationFailed": "Initialisierung fehlgeschlagen",
+  "unsupportedDevice": "Nicht unterstütztes Gerät",
+  "permissionDenied": "Berechtigung verweigert",
+  "unknownError": "Unbekannter Fehler aufgetreten",
+  "tryAgain": "Erneut Versuchen",
+  "goBack": "Zurück",
+  "photosCount": "{count} Fotos",
+  "@photosCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "compositingProgress": "Komposition {current} von {total} Bildern...",
+  "@compositingProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "pleaseWait": "Bitte warten...",
+  "imageInfo": "Bildinformationen",
+  "fileSize": "Dateigröße",
+  "dimensions": "Abmessungen",
+  "format": "Format",
+  "quality": "Qualität",
+  "highQuality": "Hohe Qualität (95%) - Große Dateigröße",
+  "mediumQuality": "Mittlere Qualität (75%) - Ausgewogen",
+  "lowQuality": "Niedrige Qualität (50%) - Kleine Dateigröße",
+  "gridBorderDescription": "Rasterlinien während der Aufnahme anzeigen",
+  "currentColor": "Aktuelle Farbe: {colorName}",
+  "@currentColor": {
+    "placeholders": {
+      "colorName": {
+        "type": "String"
+      }
+    }
+  },
+  "borderWidthValue": "{width}px",
+  "@borderWidthValue": {
+    "placeholders": {
+      "width": {
+        "type": "String"
+      }
+    }
+  },
+  "appDescription": "Diese App wird durch Werbeeinnahmen betrieben",
+  "teamName": "GridShot Camera Team",
+  "white": "Weiß",
+  "black": "Schwarz",
+  "red": "Rot",
+  "blue": "Blau",
+  "green": "Grün",
+  "yellow": "Gelb",
+  "orange": "Orange",
+  "purple": "Lila",
+  "pink": "Rosa",
+  "cyan": "Cyan",
+  "gray": "Grau",
+  "magenta": "Magenta",
+  "custom": "Benutzerdefiniert",
+  "lightColor": "Helle Farbe",
+  "darkColor": "Dunkle Farbe",
+  "redTone": "Rotton",
+  "greenTone": "Grünton",
+  "blueTone": "Blauton",
+  "systemDefault": "System-Standard"
+}

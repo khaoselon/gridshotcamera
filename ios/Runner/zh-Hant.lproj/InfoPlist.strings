@@ -1,0 +1,14 @@
+/* Camera permission description */
+"NSCameraUsageDescription" = "需要相機存取權限才能拍照。";
+
+/* Microphone permission description */
+"NSMicrophoneUsageDescription" = "相機功能需要麥克風存取權限。";
+
+/* Photo library add permission description */
+"NSPhotoLibraryAddUsageDescription" = "將拍攝的照片儲存到相片圖庫需要權限。";
+
+/* Photo library access permission description */
+"NSPhotoLibraryUsageDescription" = "需要相片圖庫存取權限才能儲存照片。";
+
+/* App tracking permission description */
+"NSUserTrackingUsageDescription" = "允許跨應用程式追蹤以個人化廣告。";

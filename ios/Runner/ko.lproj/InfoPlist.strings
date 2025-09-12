@@ -1,0 +1,14 @@
+/* Camera permission description */
+"NSCameraUsageDescription" = "사진을 촬영하려면 카메라 접근이 필요합니다.";
+
+/* Microphone permission description */
+"NSMicrophoneUsageDescription" = "카메라 기능을 위해 마이크 접근이 필요합니다.";
+
+/* Photo library add permission description */
+"NSPhotoLibraryAddUsageDescription" = "촬영한 사진을 사진 라이브러리에 저장하기 위해 권한이 필요합니다.";
+
+/* Photo library access permission description */
+"NSPhotoLibraryUsageDescription" = "사진을 저장하려면 사진 라이브러리 접근이 필요합니다.";
+
+/* App tracking permission description */
+"NSUserTrackingUsageDescription" = "광고 개인화를 위해 다른 앱에서의 앱 추적을 허용합니다.";

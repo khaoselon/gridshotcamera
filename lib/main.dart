@@ -184,6 +184,12 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
       supportedLocales: const [
         Locale('ja'), // 日本語
         Locale('en'), // 英語
+        Locale('it'), // イタリア語
+        Locale('es'), // スペイン語
+        Locale('de'), // ドイツ語
+        Locale('ko'), // 韓国語
+        Locale('pt'), // ポルトガル語
+        Locale('zh', 'Hant'), // 中国語繁体字
       ],
       locale: _getEffectiveLocale(),
 

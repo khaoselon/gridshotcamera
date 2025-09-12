@@ -1,0 +1,14 @@
+/* Camera permission description */
+"NSCameraUsageDescription" = "L'accesso alla fotocamera è necessario per scattare foto.";
+
+/* Microphone permission description */
+"NSMicrophoneUsageDescription" = "L'accesso al microfono è necessario per la funzionalità della fotocamera.";
+
+/* Photo library add permission description */
+"NSPhotoLibraryAddUsageDescription" = "È necessario il permesso per salvare le foto scattate nella libreria fotografica.";
+
+/* Photo library access permission description */
+"NSPhotoLibraryUsageDescription" = "È necessario l'accesso alla libreria fotografica per salvare le foto.";
+
+/* App tracking permission description */
+"NSUserTrackingUsageDescription" = "Consenti il tracciamento dell'app attraverso altre app per personalizzare gli annunci.";

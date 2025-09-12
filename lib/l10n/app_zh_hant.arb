@@ -1,0 +1,168 @@
+{
+  "appTitle": "GridShot Camera",
+  "homeTitle": "選擇拍攝模式",
+  "catalogMode": "目錄拍攝",
+  "catalogModeDescription": "在每個網格單元中拍攝不同主題進行編目",
+  "impossibleMode": "網格融合",
+  "impossibleModeDescription": "按網格順序拍攝相同場景以創造不可能的構圖",
+  "gridStyle": "網格樣式",
+  "grid2x2": "2×2",
+  "grid2x3": "2×3",
+  "grid3x2": "3×2",
+  "grid3x3": "3×3",
+  "startShooting": "開始拍攝",
+  "settings": "設定",
+  "cameraTitle": "拍攝中",
+  "currentPosition": "目前：{position}",
+  "@currentPosition": {
+    "placeholders": {
+      "position": {
+        "type": "String"
+      }
+    }
+  },
+  "tapToShoot": "點擊拍攝",
+  "retake": "重拍",
+  "next": "下一步",
+  "complete": "完成",
+  "previewTitle": "預覽",
+  "save": "儲存",
+  "share": "分享",
+  "cancel": "取消",
+  "settingsTitle": "設定",
+  "language": "語言",
+  "japanese": "日本語",
+  "english": "English",
+  "gridBorder": "網格邊框",
+  "borderColor": "邊框顏色",
+  "borderWidth": "邊框寬度",
+  "imageQuality": "影像品質",
+  "high": "高",
+  "medium": "中",
+  "low": "低",
+  "adSettings": "廣告設定",
+  "showAds": "顯示廣告",
+  "cameraPermission": "相機權限",
+  "cameraPermissionMessage": "需要相機存取權限才能拍照。請在設定中允許相機存取。",
+  "storagePermission": "儲存權限",
+  "storagePermissionMessage": "需要儲存存取權限才能儲存照片。",
+  "openSettings": "開啟設定",
+  "error": "錯誤",
+  "saveSuccess": "影像已成功儲存",
+  "saveFailed": "儲存影像失敗",
+  "shareSuccess": "影像已成功分享",
+  "loading": "載入中...",
+  "processing": "處理中...",
+  "compositing": "合成中...",
+  "trackingPermissionTitle": "應用程式追蹤權限",
+  "trackingPermissionMessage": "允許跨應用程式追蹤以個人化廣告。",
+  "allow": "允許",
+  "dontAllow": "不允許",
+  "selectPhotoStyle": "選擇您想要的照片風格",
+  "shootingMode": "拍攝模式",
+  "selectedGrid": "已選擇：{gridStyle}",
+  "@selectedGrid": {
+    "placeholders": {
+      "gridStyle": {
+        "type": "String"
+      }
+    }
+  },
+  "checkingPermissions": "檢查權限中...",
+  "confirmation": "確認",
+  "retakePhotos": "您要重新拍攝照片嗎？",
+  "takeNewPhoto": "拍攝新照片",
+  "shootingInfo": "拍攝資訊",
+  "mode": "模式",
+  "gridStyleInfo": "網格樣式",
+  "photoCount": "照片數量",
+  "shootingDate": "拍攝日期",
+  "saving": "儲存中...",
+  "sharing": "分享中...",
+  "catalogModeDisplay": "目錄拍攝",
+  "impossibleModeDisplay": "網格融合",
+  "resetSettings": "重設設定",
+  "appInfo": "應用程式資訊",
+  "version": "版本",
+  "developer": "開發者",
+  "aboutAds": "關於廣告",
+  "selectBorderColor": "選擇邊框顏色",
+  "resetConfirmation": "將所有設定重設為預設值？此動作無法復原。",
+  "reset": "重設",
+  "settingsReset": "設定已重設",
+  "retry": "重試",
+  "preparingCamera": "準備相機中...",
+  "cameraError": "相機錯誤",
+  "initializationFailed": "初始化失敗",
+  "unsupportedDevice": "不支援的裝置",
+  "permissionDenied": "權限被拒絕",
+  "unknownError": "發生未知錯誤",
+  "tryAgain": "再試一次",
+  "goBack": "返回",
+  "photosCount": "{count} 張照片",
+  "@photosCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "compositingProgress": "正在合成第 {current} 張，共 {total} 張影像...",
+  "@compositingProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "pleaseWait": "請稍候...",
+  "imageInfo": "影像資訊",
+  "fileSize": "檔案大小",
+  "dimensions": "尺寸",
+  "format": "格式",
+  "quality": "品質",
+  "highQuality": "高品質 (95%) - 檔案較大",
+  "mediumQuality": "中品質 (75%) - 平衡",
+  "lowQuality": "低品質 (50%) - 檔案較小",
+  "gridBorderDescription": "拍攝時顯示網格線",
+  "currentColor": "目前顏色：{colorName}",
+  "@currentColor": {
+    "placeholders": {
+      "colorName": {
+        "type": "String"
+      }
+    }
+  },
+  "borderWidthValue": "{width}px",
+  "@borderWidthValue": {
+    "placeholders": {
+      "width": {
+        "type": "String"
+      }
+    }
+  },
+  "appDescription": "此應用程式透過廣告收益營運",
+  "teamName": "GridShot Camera 團隊",
+  "white": "白色",
+  "black": "黑色",
+  "red": "紅色",
+  "blue": "藍色",
+  "green": "綠色",
+  "yellow": "黃色",
+  "orange": "橙色",
+  "purple": "紫色",
+  "pink": "粉紅色",
+  "cyan": "青色",
+  "gray": "灰色",
+  "magenta": "洋紅色",
+  "custom": "自訂",
+  "lightColor": "淺色",
+  "darkColor": "深色",
+  "redTone": "紅色調",
+  "greenTone": "綠色調",
+  "blueTone": "藍色調",
+  "systemDefault": "系統預設"
+}

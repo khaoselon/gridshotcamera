@@ -7,6 +7,12 @@ import 'package:intl/intl.dart' as intl;
 
 import 'app_localizations_en.dart';
 import 'app_localizations_ja.dart';
+import 'app_localizations_it.dart';
+import 'app_localizations_es.dart';
+import 'app_localizations_de.dart';
+import 'app_localizations_ko.dart';
+import 'app_localizations_pt.dart';
+import 'app_localizations_zh.dart';
 
 // ignore_for_file: type=lint
 
@@ -46,12 +52,12 @@ import 'app_localizations_ja.dart';
 ///
 /// iOS applications define key application metadata, including supported
 /// locales, in an Info.plist file that is built into the application bundle.
-/// To configure the locales supported by your app, you’ll need to edit this
+/// To configure the locales supported by your app, you'll need to edit this
 /// file.
 ///
-/// First, open your project’s ios/Runner.xcworkspace Xcode workspace file.
+/// First, open your project's ios/Runner.xcworkspace Xcode workspace file.
 /// Then, in the Project Navigator, open the Info.plist file under the Runner
-/// project’s Runner folder.
+/// project's Runner folder.
 ///
 /// Next, select the Information Property List item, select Add Item from the
 /// Editor menu, then select Localizations from the pop-up menu.
@@ -96,6 +102,12 @@ abstract class AppLocalizations {
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
     Locale('ja'),
+    Locale('it'),
+    Locale('es'),
+    Locale('de'),
+    Locale('ko'),
+    Locale('pt'),
+    Locale('zh', 'Hant'),
   ];
 
   /// No description provided for @appTitle.
@@ -829,20 +841,45 @@ class _AppLocalizationsDelegate
   }
 
   @override
-  bool isSupported(Locale locale) =>
-      <String>['en', 'ja'].contains(locale.languageCode);
+  bool isSupported(Locale locale) => <String>[
+    'en',
+    'ja',
+    'it',
+    'es',
+    'de',
+    'ko',
+    'pt',
+    'zh',
+  ].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
 }
 
 AppLocalizations lookupAppLocalizations(Locale locale) {
+  // Handle zh-Hant specifically
+  if (locale.languageCode == 'zh' && locale.scriptCode == 'Hant') {
+    return AppLocalizationsZhHant();
+  }
+
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
     case 'en':
       return AppLocalizationsEn();
     case 'ja':
       return AppLocalizationsJa();
+    case 'it':
+      return AppLocalizationsIt();
+    case 'es':
+      return AppLocalizationsEs();
+    case 'de':
+      return AppLocalizationsDe();
+    case 'ko':
+      return AppLocalizationsKo();
+    case 'pt':
+      return AppLocalizationsPt();
+    case 'zh':
+      return AppLocalizationsZhHant(); // Default to traditional Chinese
   }
 
   throw FlutterError(
