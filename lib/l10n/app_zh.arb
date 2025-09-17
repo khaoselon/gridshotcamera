@@ -1,0 +1,168 @@
+{
+  "appTitle": "GridShot Camera",
+  "homeTitle": "选择拍摄模式",
+  "catalogMode": "目录拍摄",
+  "catalogModeDescription": "在每个网格单元中拍摄不同主题进行编目",
+  "impossibleMode": "网格融合",
+  "impossibleModeDescription": "按网格顺序拍摄相同场景以创造不可能的构图",
+  "gridStyle": "网格样式",
+  "grid2x2": "2×2",
+  "grid2x3": "2×3",
+  "grid3x2": "3×2",
+  "grid3x3": "3×3",
+  "startShooting": "开始拍摄",
+  "settings": "设置",
+  "cameraTitle": "拍摄中",
+  "currentPosition": "当前：{position}",
+  "@currentPosition": {
+    "placeholders": {
+      "position": {
+        "type": "String"
+      }
+    }
+  },
+  "tapToShoot": "点击拍摄",
+  "retake": "重拍",
+  "next": "下一步",
+  "complete": "完成",
+  "previewTitle": "预览",
+  "save": "保存",
+  "share": "分享",
+  "cancel": "取消",
+  "settingsTitle": "设置",
+  "language": "语言",
+  "japanese": "日本語",
+  "english": "English",
+  "gridBorder": "网格边框",
+  "borderColor": "边框颜色",
+  "borderWidth": "边框宽度",
+  "imageQuality": "图像质量",
+  "high": "高",
+  "medium": "中",
+  "low": "低",
+  "adSettings": "广告设置",
+  "showAds": "显示广告",
+  "cameraPermission": "相机权限",
+  "cameraPermissionMessage": "需要相机访问权限才能拍照。请在设置中允许相机访问。",
+  "storagePermission": "存储权限",
+  "storagePermissionMessage": "需要存储访问权限才能保存照片。",
+  "openSettings": "打开设置",
+  "error": "错误",
+  "saveSuccess": "图像已成功保存",
+  "saveFailed": "保存图像失败",
+  "shareSuccess": "图像已成功分享",
+  "loading": "加载中...",
+  "processing": "处理中...",
+  "compositing": "合成中...",
+  "trackingPermissionTitle": "应用程序跟踪权限",
+  "trackingPermissionMessage": "允许跨应用程序跟踪以个性化广告。",
+  "allow": "允许",
+  "dontAllow": "不允许",
+  "selectPhotoStyle": "选择您想要的照片风格",
+  "shootingMode": "拍摄模式",
+  "selectedGrid": "已选择：{gridStyle}",
+  "@selectedGrid": {
+    "placeholders": {
+      "gridStyle": {
+        "type": "String"
+      }
+    }
+  },
+  "checkingPermissions": "检查权限中...",
+  "confirmation": "确认",
+  "retakePhotos": "您要重新拍摄照片吗？",
+  "takeNewPhoto": "拍摄新照片",
+  "shootingInfo": "拍摄信息",
+  "mode": "模式",
+  "gridStyleInfo": "网格样式",
+  "photoCount": "照片数量",
+  "shootingDate": "拍摄日期",
+  "saving": "保存中...",
+  "sharing": "分享中...",
+  "catalogModeDisplay": "目录拍摄",
+  "impossibleModeDisplay": "网格融合",
+  "resetSettings": "重置设置",
+  "appInfo": "应用程序信息",
+  "version": "版本",
+  "developer": "开发者",
+  "aboutAds": "关于广告",
+  "selectBorderColor": "选择边框颜色",
+  "resetConfirmation": "将所有设置重置为默认值？此操作无法撤销。",
+  "reset": "重置",
+  "settingsReset": "设置已重置",
+  "retry": "重试",
+  "preparingCamera": "准备相机中...",
+  "cameraError": "相机错误",
+  "initializationFailed": "初始化失败",
+  "unsupportedDevice": "不支持的设备",
+  "permissionDenied": "权限被拒绝",
+  "unknownError": "发生未知错误",
+  "tryAgain": "再试一次",
+  "goBack": "返回",
+  "photosCount": "{count} 张照片",
+  "@photosCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "compositingProgress": "正在合成第 {current} 张，共 {total} 张图像...",
+  "@compositingProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "pleaseWait": "请稍候...",
+  "imageInfo": "图像信息",
+  "fileSize": "文件大小",
+  "dimensions": "尺寸",
+  "format": "格式",
+  "quality": "质量",
+  "highQuality": "高质量 (95%) - 文件较大",
+  "mediumQuality": "中质量 (75%) - 平衡",
+  "lowQuality": "低质量 (50%) - 文件较小",
+  "gridBorderDescription": "拍摄时显示网格线",
+  "currentColor": "当前颜色：{colorName}",
+  "@currentColor": {
+    "placeholders": {
+      "colorName": {
+        "type": "String"
+      }
+    }
+  },
+  "borderWidthValue": "{width}px",
+  "@borderWidthValue": {
+    "placeholders": {
+      "width": {
+        "type": "String"
+      }
+    }
+  },
+  "appDescription": "此应用程序通过广告收益运营",
+  "teamName": "GridShot Camera 团队",
+  "white": "白色",
+  "black": "黑色",
+  "red": "红色",
+  "blue": "蓝色",
+  "green": "绿色",
+  "yellow": "黄色",
+  "orange": "橙色",
+  "purple": "紫色",
+  "pink": "粉红色",
+  "cyan": "青色",
+  "gray": "灰色",
+  "magenta": "洋红色",
+  "custom": "自定义",
+  "lightColor": "浅色",
+  "darkColor": "深色",
+  "redTone": "红色调",
+  "greenTone": "绿色调",
+  "blueTone": "蓝色调",
+  "systemDefault": "系统默认"
+}

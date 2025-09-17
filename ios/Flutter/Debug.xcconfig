@@ -1,0 +1,7 @@
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
+#include "Generated.xcconfig"
+CLANG_MODULE_CACHE_PATH=$(PROJECT_TEMP_DIR)/ModuleCache.noindex
+SHARED_PRECOMPS_DIR=$(PROJECT_TEMP_DIR)/SharedPrecompiledHeaders
+COMPILER_INDEX_STORE_ENABLE=NO
+ENABLE_MODULE_VERIFIER=NO
+SWIFT_PRECOMPILE_BRIDGING_HEADER=NO

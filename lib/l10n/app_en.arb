@@ -1,0 +1,169 @@
+{
+  "appTitle": "GridShot Camera",
+  "homeTitle": "Select Shooting Mode",
+  "catalogMode": "Catalog Shot",
+  "catalogModeDescription": "Capture different subjects in each grid cell for cataloging",
+  "impossibleMode": "Grid Fusion",
+  "impossibleModeDescription": "Shoot the same scene in grid order to create impossible compositions",
+  "gridStyle": "Grid Style",
+  "grid2x2": "2×2",
+  "grid2x3": "2×3",
+  "grid3x2": "3×2",
+  "grid3x3": "3×3",
+  "startShooting": "Start Shooting",
+  "settings": "Settings",
+  "cameraTitle": "Shooting",
+  "currentPosition": "Current: {position}",
+  "@currentPosition": {
+    "placeholders": {
+      "position": {
+        "type": "String"
+      }
+    }
+  },
+  "tapToShoot": "Tap to Shoot",
+  "retake": "Retake",
+  "next": "Next",
+  "complete": "Complete",
+  "previewTitle": "Preview",
+  "save": "Save",
+  "share": "Share",
+  "cancel": "Cancel",
+  "settingsTitle": "Settings",
+  "language": "Language",
+  "japanese": "日本語",
+  "english": "English",
+  "gridBorder": "Grid Border",
+  "borderColor": "Border Color",
+  "borderWidth": "Border Width",
+  "imageQuality": "Image Quality",
+  "high": "High",
+  "medium": "Medium",
+  "low": "Low",
+  "adSettings": "Ad Settings",
+  "showAds": "Show Ads",
+  "cameraPermission": "Camera Permission",
+  "cameraPermissionMessage": "Camera access is required to take photos. Please allow camera access in settings.",
+  "storagePermission": "Storage Permission",
+  "storagePermissionMessage": "Storage access is required to save photos.",
+  "openSettings": "Open Settings",
+  "error": "Error",
+  "saveSuccess": "Image saved successfully",
+  "saveFailed": "Failed to save image",
+  "shareSuccess": "Image shared successfully",
+  "loading": "Loading...",
+  "processing": "Processing...",
+  "compositing": "Compositing...",
+  "trackingPermissionTitle": "App Tracking Permission",
+  "trackingPermissionMessage": "Allow app tracking across other apps to personalize ads.",
+  "allow": "Allow",
+  "dontAllow": "Don't Allow",
+
+  "selectPhotoStyle": "Select your desired photo style",
+  "shootingMode": "Shooting Mode",
+  "selectedGrid": "Selected: {gridStyle}",
+  "@selectedGrid": {
+    "placeholders": {
+      "gridStyle": {
+        "type": "String"
+      }
+    }
+  },
+  "checkingPermissions": "Checking permissions...",
+  "confirmation": "Confirmation",
+  "retakePhotos": "Do you want to retake the photos?",
+  "takeNewPhoto": "Take New Photo",
+  "shootingInfo": "Shooting Information",
+  "mode": "Mode",
+  "gridStyleInfo": "Grid Style",
+  "photoCount": "Photo Count",
+  "shootingDate": "Shooting Date",
+  "saving": "Saving...",
+  "sharing": "Sharing...",
+  "catalogModeDisplay": "Catalog Shot",
+  "impossibleModeDisplay": "Grid Fusion",
+  "resetSettings": "Reset Settings",
+  "appInfo": "App Information",
+  "version": "Version",
+  "developer": "Developer",
+  "aboutAds": "About Ads",
+  "selectBorderColor": "Select Border Color",
+  "resetConfirmation": "Reset all settings to default values? This action cannot be undone.",
+  "reset": "Reset",
+  "settingsReset": "Settings have been reset",
+  "retry": "Retry",
+  "preparingCamera": "Preparing camera...",
+  "cameraError": "Camera Error",
+  "initializationFailed": "Initialization failed",
+  "unsupportedDevice": "Unsupported device",
+  "permissionDenied": "Permission denied",
+  "unknownError": "Unknown error occurred",
+  "tryAgain": "Try Again",
+  "goBack": "Go Back",
+  "photosCount": "{count} photos",
+  "@photosCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "compositingProgress": "Compositing {current} of {total} images...",
+  "@compositingProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "pleaseWait": "Please wait...",
+  "imageInfo": "Image Information",
+  "fileSize": "File Size",
+  "dimensions": "Dimensions",
+  "format": "Format",
+  "quality": "Quality",
+  "highQuality": "High Quality (95%) - Large file size",
+  "mediumQuality": "Medium Quality (75%) - Balanced",
+  "lowQuality": "Low Quality (50%) - Small file size",
+  "gridBorderDescription": "Display grid lines during shooting",
+  "currentColor": "Current color: {colorName}",
+  "@currentColor": {
+    "placeholders": {
+      "colorName": {
+        "type": "String"
+      }
+    }
+  },
+  "borderWidthValue": "{width}px",
+  "@borderWidthValue": {
+    "placeholders": {
+      "width": {
+        "type": "String"
+      }
+    }
+  },
+  "appDescription": "This app is operated through advertising revenue",
+  "teamName": "GridShot Camera Team",
+  "white": "White",
+  "black": "Black",
+  "red": "Red",
+  "blue": "Blue",
+  "green": "Green",
+  "yellow": "Yellow",
+  "orange": "Orange",
+  "purple": "Purple",
+  "pink": "Pink",
+  "cyan": "Cyan",
+  "gray": "Gray",
+  "magenta": "Magenta",
+  "custom": "Custom",
+  "lightColor": "Light Color",
+  "darkColor": "Dark Color",
+  "redTone": "Red Tone",
+  "greenTone": "Green Tone",
+  "blueTone": "Blue Tone",
+  "systemDefault": "System Default"
+}

@@ -1,0 +1,168 @@
+{
+  "appTitle": "GridShot Camera",
+  "homeTitle": "촬영 모드 선택",
+  "catalogMode": "카탈로그 촬영",
+  "catalogModeDescription": "각 격자 셀에 다른 피사체를 담아 카탈로그화",
+  "impossibleMode": "그리드 합성",
+  "impossibleModeDescription": "같은 장면을 격자 순서로 촬영하여 불가능한 합성 창조",
+  "gridStyle": "그리드 스타일",
+  "grid2x2": "2×2",
+  "grid2x3": "2×3",
+  "grid3x2": "3×2",
+  "grid3x3": "3×3",
+  "startShooting": "촬영 시작",
+  "settings": "설정",
+  "cameraTitle": "촬영 중",
+  "currentPosition": "현재: {position}",
+  "@currentPosition": {
+    "placeholders": {
+      "position": {
+        "type": "String"
+      }
+    }
+  },
+  "tapToShoot": "탭하여 촬영",
+  "retake": "재촬영",
+  "next": "다음",
+  "complete": "완료",
+  "previewTitle": "미리보기",
+  "save": "저장",
+  "share": "공유",
+  "cancel": "취소",
+  "settingsTitle": "설정",
+  "language": "언어",
+  "japanese": "日本語",
+  "english": "English",
+  "gridBorder": "그리드 테두리",
+  "borderColor": "테두리 색상",
+  "borderWidth": "테두리 두께",
+  "imageQuality": "이미지 품질",
+  "high": "높음",
+  "medium": "중간",
+  "low": "낮음",
+  "adSettings": "광고 설정",
+  "showAds": "광고 표시",
+  "cameraPermission": "카메라 권한",
+  "cameraPermissionMessage": "사진을 촬영하려면 카메라 접근이 필요합니다. 설정에서 카메라 접근을 허용해 주세요.",
+  "storagePermission": "저장소 권한",
+  "storagePermissionMessage": "사진을 저장하려면 저장소 접근이 필요합니다.",
+  "openSettings": "설정 열기",
+  "error": "오류",
+  "saveSuccess": "이미지가 성공적으로 저장되었습니다",
+  "saveFailed": "이미지 저장에 실패했습니다",
+  "shareSuccess": "이미지가 성공적으로 공유되었습니다",
+  "loading": "로딩 중...",
+  "processing": "처리 중...",
+  "compositing": "합성 중...",
+  "trackingPermissionTitle": "앱 추적 권한",
+  "trackingPermissionMessage": "광고 개인화를 위해 다른 앱에서의 앱 추적을 허용합니다.",
+  "allow": "허용",
+  "dontAllow": "허용 안 함",
+  "selectPhotoStyle": "원하는 사진 스타일을 선택하세요",
+  "shootingMode": "촬영 모드",
+  "selectedGrid": "선택됨: {gridStyle}",
+  "@selectedGrid": {
+    "placeholders": {
+      "gridStyle": {
+        "type": "String"
+      }
+    }
+  },
+  "checkingPermissions": "권한 확인 중...",
+  "confirmation": "확인",
+  "retakePhotos": "사진을 다시 촬영하시겠습니까?",
+  "takeNewPhoto": "새 사진 촬영",
+  "shootingInfo": "촬영 정보",
+  "mode": "모드",
+  "gridStyleInfo": "그리드 스타일",
+  "photoCount": "사진 수",
+  "shootingDate": "촬영 날짜",
+  "saving": "저장 중...",
+  "sharing": "공유 중...",
+  "catalogModeDisplay": "카탈로그 촬영",
+  "impossibleModeDisplay": "그리드 합성",
+  "resetSettings": "설정 재설정",
+  "appInfo": "앱 정보",
+  "version": "버전",
+  "developer": "개발자",
+  "aboutAds": "광고 정보",
+  "selectBorderColor": "테두리 색상 선택",
+  "resetConfirmation": "모든 설정을 기본값으로 재설정하시겠습니까? 이 작업은 취소할 수 없습니다.",
+  "reset": "재설정",
+  "settingsReset": "설정이 재설정되었습니다",
+  "retry": "재시도",
+  "preparingCamera": "카메라 준비 중...",
+  "cameraError": "카메라 오류",
+  "initializationFailed": "초기화 실패",
+  "unsupportedDevice": "지원되지 않는 기기",
+  "permissionDenied": "권한 거부됨",
+  "unknownError": "알 수 없는 오류가 발생했습니다",
+  "tryAgain": "다시 시도",
+  "goBack": "뒤로",
+  "photosCount": "{count}장의 사진",
+  "@photosCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "compositingProgress": "{total}개 중 {current}번째 이미지 합성 중...",
+  "@compositingProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "pleaseWait": "잠시만 기다려 주세요...",
+  "imageInfo": "이미지 정보",
+  "fileSize": "파일 크기",
+  "dimensions": "크기",
+  "format": "형식",
+  "quality": "품질",
+  "highQuality": "최고 품질 (95%) - 큰 파일 크기",
+  "mediumQuality": "중간 품질 (75%) - 균형",
+  "lowQuality": "낮은 품질 (50%) - 작은 파일 크기",
+  "gridBorderDescription": "촬영 중 그리드 선 표시",
+  "currentColor": "현재 색상: {colorName}",
+  "@currentColor": {
+    "placeholders": {
+      "colorName": {
+        "type": "String"
+      }
+    }
+  },
+  "borderWidthValue": "{width}px",
+  "@borderWidthValue": {
+    "placeholders": {
+      "width": {
+        "type": "String"
+      }
+    }
+  },
+  "appDescription": "이 앱은 광고 수익을 통해 운영됩니다",
+  "teamName": "GridShot Camera 팀",
+  "white": "흰색",
+  "black": "검은색",
+  "red": "빨간색",
+  "blue": "파란색",
+  "green": "초록색",
+  "yellow": "노란색",
+  "orange": "주황색",
+  "purple": "보라색",
+  "pink": "분홍색",
+  "cyan": "청록색",
+  "gray": "회색",
+  "magenta": "자홍색",
+  "custom": "사용자 정의",
+  "lightColor": "밝은 색상",
+  "darkColor": "어두운 색상",
+  "redTone": "빨간 계열",
+  "greenTone": "초록 계열",
+  "blueTone": "파란 계열",
+  "systemDefault": "시스템 기본값"
+}
