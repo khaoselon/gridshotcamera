@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.mkproject.gridshot_camera"
     compileSdk = 36
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "28.0.12433566"
 
     // ★ Java 17 に統一
     compileOptions {
@@ -22,6 +22,12 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+                // NDK R27の場合の16KB対応設定
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
+            }
     }
 
     buildTypes {
