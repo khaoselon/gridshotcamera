@@ -64,7 +64,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               IconButton(
                 icon: const Icon(Icons.refresh_rounded),
                 onPressed: () => _showResetDialog(l10n, theme, colorScheme),
-                tooltip: l10n.resetSettings, // 多言語化対応
+                tooltip: l10n.resetSettings,
                 style: IconButton.styleFrom(
                   backgroundColor: Colors.white.withOpacity(0.2),
                   shape: const CircleBorder(),
@@ -87,80 +87,139 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
           body: FadeTransition(
             opacity: _fadeAnimation,
-            child: ListView(
-              padding: const EdgeInsets.all(20.0),
-              children: [
-                // 言語設定セクション
-                _buildSectionCard(
-                  title: l10n.language,
-                  icon: Icons.language_rounded,
-                  theme: theme,
-                  colorScheme: colorScheme,
-                  children: [
-                    _buildLanguageTile(settings, l10n, theme, colorScheme),
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-
-                // グリッド表示設定セクション
-                _buildSectionCard(
-                  title: l10n.gridBorder,
-                  icon: Icons.grid_on_rounded,
-                  theme: theme,
-                  colorScheme: colorScheme,
-                  children: [
-                    _buildGridBorderTile(settings, l10n, theme, colorScheme),
-
-                    if (settings.showGridBorder) ...[
-                      const Divider(height: 24),
-                      _buildBorderColorTile(settings, l10n, theme, colorScheme),
-                      _buildBorderWidthSlider(
-                        settings,
-                        l10n,
-                        theme,
-                        colorScheme,
-                      ),
-                    ],
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-
-                // 画像品質設定セクション
-                _buildSectionCard(
-                  title: l10n.imageQuality,
-                  icon: Icons.photo_size_select_actual_rounded,
-                  theme: theme,
-                  colorScheme: colorScheme,
-                  children: [
-                    _buildImageQualitySection(
-                      settings,
-                      l10n,
-                      theme,
-                      colorScheme,
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-
-                // アプリ情報セクション
-                _buildSectionCard(
-                  title: l10n.appInfo, // 多言語化対応
-                  icon: Icons.info_rounded,
-                  theme: theme,
-                  colorScheme: colorScheme,
-                  children: [_buildAppInfoTiles(l10n, theme, colorScheme)],
-                ),
-
-                const SizedBox(height: 40),
-              ],
+            child: OrientationBuilder(
+              builder: (context, orientation) {
+                if (orientation == Orientation.landscape) {
+                  return _buildLandscapeLayout(
+                    settings,
+                    l10n,
+                    theme,
+                    colorScheme,
+                  );
+                } else {
+                  return _buildPortraitLayout(
+                    settings,
+                    l10n,
+                    theme,
+                    colorScheme,
+                  );
+                }
+              },
             ),
           ),
         );
       },
     );
+  }
+
+  Widget _buildPortraitLayout(
+    AppSettings settings,
+    AppLocalizations l10n,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    return ListView(
+      padding: const EdgeInsets.all(20.0),
+      children: _buildAllSections(settings, l10n, theme, colorScheme),
+    );
+  }
+
+  Widget _buildLandscapeLayout(
+    AppSettings settings,
+    AppLocalizations l10n,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    final sections = _buildAllSections(settings, l10n, theme, colorScheme);
+
+    // セクションを左右に分割
+    final leftSections = <Widget>[];
+    final rightSections = <Widget>[];
+
+    for (int i = 0; i < sections.length; i++) {
+      if (i % 2 == 0) {
+        leftSections.add(sections[i]);
+      } else {
+        rightSections.add(sections[i]);
+      }
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 左側のセクション
+          Expanded(child: Column(children: leftSections)),
+          const SizedBox(width: 20),
+          // 右側のセクション
+          Expanded(child: Column(children: rightSections)),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildAllSections(
+    AppSettings settings,
+    AppLocalizations l10n,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    return [
+      // 言語設定セクション
+      _buildSectionCard(
+        title: l10n.language,
+        icon: Icons.language_rounded,
+        theme: theme,
+        colorScheme: colorScheme,
+        children: [_buildLanguageTile(settings, l10n, theme, colorScheme)],
+      ),
+
+      const SizedBox(height: 20),
+
+      // グリッド表示設定セクション
+      _buildSectionCard(
+        title: l10n.gridBorder,
+        icon: Icons.grid_on_rounded,
+        theme: theme,
+        colorScheme: colorScheme,
+        children: [
+          _buildGridBorderTile(settings, l10n, theme, colorScheme),
+
+          if (settings.showGridBorder) ...[
+            const Divider(height: 24),
+            _buildBorderColorTile(settings, l10n, theme, colorScheme),
+            _buildBorderWidthSlider(settings, l10n, theme, colorScheme),
+          ],
+        ],
+      ),
+
+      const SizedBox(height: 20),
+
+      // 画像品質設定セクション
+      _buildSectionCard(
+        title: l10n.imageQuality,
+        icon: Icons.photo_size_select_actual_rounded,
+        theme: theme,
+        colorScheme: colorScheme,
+        children: [
+          _buildImageQualitySection(settings, l10n, theme, colorScheme),
+        ],
+      ),
+
+      const SizedBox(height: 20),
+
+      // アプリ情報セクション
+      _buildSectionCard(
+        title: l10n.appInfo,
+        icon: Icons.info_rounded,
+        theme: theme,
+        colorScheme: colorScheme,
+        children: [_buildAppInfoTiles(l10n, theme, colorScheme)],
+      ),
+
+      const SizedBox(height: 40),
+    ];
   }
 
   Widget _buildSectionCard({
@@ -227,13 +286,15 @@ class _SettingsScreenState extends State<SettingsScreen>
                   child: Icon(icon, color: Colors.white, size: 24),
                 ),
                 const SizedBox(width: 16),
-                Text(
-                  title,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                    color: colorScheme.onSurface,
-                    letterSpacing: 0.5,
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                      color: colorScheme.onSurface,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
               ],
@@ -298,7 +359,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 children: [
                   const Text('🌍'),
                   const SizedBox(width: 8),
-                  Text('System Default'), // TODO: 多言語化対応
+                  Text('System Default'),
                 ],
               ),
             ),
@@ -416,7 +477,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         ),
       ),
       subtitle: Text(
-        l10n.gridBorderDescription, // 多言語化対応
+        l10n.gridBorderDescription,
         style: theme.textTheme.bodyMedium?.copyWith(
           color: colorScheme.onSurface.withOpacity(0.7),
         ),
@@ -444,7 +505,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         ),
       ),
       subtitle: Text(
-        l10n.currentColor(_getColorName(l10n, settings.borderColor)), // 多言語化対応
+        l10n.currentColor(_getColorName(l10n, settings.borderColor)),
         style: theme.textTheme.bodyMedium?.copyWith(
           color: colorScheme.onSurface.withOpacity(0.7),
         ),
@@ -481,7 +542,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${l10n.borderWidth}: ${l10n.borderWidthValue(settings.borderWidth.toStringAsFixed(1))}', // 多言語化対応
+            '${l10n.borderWidth}: ${l10n.borderWidthValue(settings.borderWidth.toStringAsFixed(1))}',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: colorScheme.onSurface,
@@ -504,7 +565,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               divisions: 19,
               label: l10n.borderWidthValue(
                 settings.borderWidth.toStringAsFixed(1),
-              ), // 多言語化対応
+              ),
               onChanged: (value) {
                 SettingsService.instance.updateBorderWidth(value);
               },
@@ -561,7 +622,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ),
               ),
               subtitle: Text(
-                _getQualityDescription(l10n, quality), // 多言語化対応
+                _getQualityDescription(l10n, quality),
                 style: TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
               ),
               value: quality,
@@ -588,7 +649,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       children: [
         ListTile(
           title: Text(
-            l10n.version, // 多言語化対応
+            l10n.version,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: colorScheme.onSurface,
@@ -607,14 +668,14 @@ class _SettingsScreenState extends State<SettingsScreen>
         ),
         ListTile(
           title: Text(
-            l10n.developer, // 多言語化対応
+            l10n.developer,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: colorScheme.onSurface,
             ),
           ),
           subtitle: Text(
-            l10n.teamName, // 多言語化対応
+            l10n.teamName,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurface.withOpacity(0.7),
             ),
@@ -623,14 +684,14 @@ class _SettingsScreenState extends State<SettingsScreen>
         ),
         ListTile(
           title: Text(
-            l10n.aboutAds, // 多言語化対応
+            l10n.aboutAds,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: colorScheme.onSurface,
             ),
           ),
           subtitle: Text(
-            l10n.appDescription, // 多言語化対応
+            l10n.appDescription,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurface.withOpacity(0.7),
             ),
@@ -647,15 +708,17 @@ class _SettingsScreenState extends State<SettingsScreen>
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
+    final orientation = MediaQuery.of(context).orientation;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l10n.selectBorderColor), // 多言語化対応
+        title: Text(l10n.selectBorderColor),
         backgroundColor: theme.cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         content: SizedBox(
-          width: 320,
-          height: 480,
+          width: orientation == Orientation.landscape ? 400 : 320,
+          height: orientation == Orientation.landscape ? 300 : 480,
           child: _buildColorPicker(l10n, theme, colorScheme),
         ),
         actions: [
@@ -759,10 +822,10 @@ class _SettingsScreenState extends State<SettingsScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l10n.resetSettings), // 多言語化対応
+        title: Text(l10n.resetSettings),
         backgroundColor: theme.cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        content: Text(l10n.resetConfirmation), // 多言語化対応
+        content: Text(l10n.resetConfirmation),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -778,7 +841,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(l10n.settingsReset), // 多言語化対応
+                    content: Text(l10n.settingsReset),
                     backgroundColor: colorScheme.primary,
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(
@@ -792,18 +855,18 @@ class _SettingsScreenState extends State<SettingsScreen>
             child: Text(
               l10n.reset,
               style: const TextStyle(color: Colors.white),
-            ), // 多言語化対応
+            ),
           ),
         ],
       ),
     );
   }
 
-  /// 言語表示名を取得（修正版）
+  /// 言語表示名を取得
   String _getLanguageDisplayName(String languageCode, AppLocalizations l10n) {
     switch (languageCode) {
       case 'system':
-        return 'System Default'; // TODO: 多言語化
+        return 'System Default';
       case 'ja':
         return '日本語';
       case 'en':
@@ -854,7 +917,6 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   String _getQualityDescription(AppLocalizations l10n, ImageQuality quality) {
-    // 多言語化対応
     switch (quality) {
       case ImageQuality.high:
         return l10n.highQuality;

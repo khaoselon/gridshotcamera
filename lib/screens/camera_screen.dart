@@ -47,8 +47,6 @@ class _CameraScreenState extends State<CameraScreen>
   double _maxZoom = 1.0;
   FlashMode _currentFlashMode = FlashMode.auto;
 
-  // 広告関連は削除（カメラ画面では広告を表示しない）
-
   @override
   void initState() {
     super.initState();
@@ -56,9 +54,7 @@ class _CameraScreenState extends State<CameraScreen>
 
     _initializeSession();
     _initializeAnimations();
-    _initializeCamera(); // 権限チェックを削除し直接初期化
-
-    // バナー広告のロードは削除（カメラ画面では広告を表示しない）
+    _initializeCamera();
   }
 
   @override
@@ -73,7 +69,6 @@ class _CameraScreenState extends State<CameraScreen>
     // CameraServiceの破棄
     _cameraService.dispose();
 
-    // バナー広告の破棄は削除（元々作成していないため）
     super.dispose();
     debugPrint('CameraScreen: dispose完了');
   }
@@ -168,8 +163,6 @@ class _CameraScreenState extends State<CameraScreen>
       });
     }
   }
-
-  // バナー広告のロードメソッドは削除
 
   void _updateProgressAnimation() {
     if (_isScreenDisposed) return;
@@ -333,22 +326,18 @@ class _CameraScreenState extends State<CameraScreen>
     // より安全なライフサイクル管理
     switch (state) {
       case AppLifecycleState.inactive:
-        // アプリが非アクティブになった時の処理
         debugPrint('CameraScreen: アプリが非アクティブになりました');
         break;
       case AppLifecycleState.paused:
-        // アプリがバックグラウンドに移った時の処理
         debugPrint('CameraScreen: アプリがバックグラウンドに移りました');
         break;
       case AppLifecycleState.resumed:
-        // アプリがフォアグラウンドに戻った時の処理
         debugPrint('CameraScreen: アプリがフォアグラウンドに戻りました');
         if (!_cameraService.isInitialized && !_cameraService.isInitializing) {
           _initializeCamera();
         }
         break;
       case AppLifecycleState.detached:
-        // アプリが終了する時の処理
         debugPrint('CameraScreen: アプリが終了します');
         break;
       default:
@@ -363,7 +352,11 @@ class _CameraScreenState extends State<CameraScreen>
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: _buildBody(context, l10n, theme),
+      body: OrientationBuilder(
+        builder: (context, orientation) {
+          return _buildBody(context, l10n, theme, orientation);
+        },
+      ),
     );
   }
 
@@ -371,6 +364,7 @@ class _CameraScreenState extends State<CameraScreen>
     BuildContext context,
     AppLocalizations l10n,
     ThemeData theme,
+    Orientation orientation,
   ) {
     if (_isInitializing) {
       return LoadingWidget(message: l10n.loading);
@@ -402,10 +396,11 @@ class _CameraScreenState extends State<CameraScreen>
         // グリッドオーバーレイ
         _buildGridOverlay(),
 
-        // UI コントロール
-        _buildUIControls(l10n, theme),
-
-        // バナー広告は削除（カメラ画面では表示しない）
+        // UI コントロール（画面向き対応）
+        if (orientation == Orientation.portrait)
+          _buildPortraitUIControls(l10n, theme)
+        else
+          _buildLandscapeUIControls(l10n, theme),
       ],
     );
   }
@@ -437,7 +432,7 @@ class _CameraScreenState extends State<CameraScreen>
             ElevatedButton(
               onPressed: _initializeCamera,
               child: Text(l10n.retry),
-            ), // 多言語化対応
+            ),
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -462,7 +457,7 @@ class _CameraScreenState extends State<CameraScreen>
         color: Colors.black,
         child: Center(
           child: Text(
-            AppLocalizations.of(context)!.preparingCamera, // 多言語化対応
+            AppLocalizations.of(context)!.preparingCamera,
             style: const TextStyle(color: Colors.white, fontSize: 16),
           ),
         ),
@@ -535,17 +530,65 @@ class _CameraScreenState extends State<CameraScreen>
     );
   }
 
-  Widget _buildUIControls(AppLocalizations l10n, ThemeData theme) {
+  // 縦画面用UIコントロール
+  Widget _buildPortraitUIControls(AppLocalizations l10n, ThemeData theme) {
     return SafeArea(
       child: Column(
         children: [
           // 上部コントロール
           _buildTopControls(l10n),
-
           const Spacer(),
-
           // 下部コントロール
           _buildBottomControls(l10n, theme),
+        ],
+      ),
+    );
+  }
+
+  // 横画面用UIコントロール
+  Widget _buildLandscapeUIControls(AppLocalizations l10n, ThemeData theme) {
+    return SafeArea(
+      child: Row(
+        children: [
+          // 左側コントロール
+          Container(
+            width: 120,
+            child: Column(
+              children: [
+                const Spacer(),
+                _buildVerticalControls(l10n),
+                const Spacer(),
+              ],
+            ),
+          ),
+          const Spacer(),
+          // 右側コントロール
+          Container(
+            width: 200,
+            child: Column(
+              children: [
+                // 上部情報
+                Container(
+                  padding: const EdgeInsets.all(16.0),
+                  child: _buildShootingInfo(l10n),
+                ),
+                const Spacer(),
+                // 撮影ボタン
+                _buildShutterButton(l10n),
+                const SizedBox(height: 20),
+                // 撮り直しボタン
+                if (_session.hasCurrentImage)
+                  IconButton(
+                    onPressed: _retakeCurrentPicture,
+                    icon: const Icon(Icons.refresh, color: Colors.white),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black.withValues(alpha: 0.5),
+                    ),
+                  ),
+                const Spacer(),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -568,42 +611,7 @@ class _CameraScreenState extends State<CameraScreen>
           const Spacer(),
 
           // 撮影情報
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  l10n.currentPosition(_session.currentPosition.displayString),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                // セグメント化されたプログレスバー
-                DetailedSegmentedProgressBar(
-                  gridStyle: widget.gridStyle,
-                  completedCount: _session.completedCount,
-                  currentIndex: _session.currentIndex,
-                  width: 140,
-                  height: 6,
-                  showLabels: false, // ラベルは上で表示しているのでfalse
-                ),
-
-                const SizedBox(height: 6),
-                Text(
-                  '${_session.completedCount}/${_session.gridStyle.totalCells}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
+          _buildShootingInfo(l10n),
 
           const Spacer(),
 
@@ -614,6 +622,45 @@ class _CameraScreenState extends State<CameraScreen>
             style: IconButton.styleFrom(
               backgroundColor: Colors.black.withValues(alpha: 0.5),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShootingInfo(AppLocalizations l10n) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          Text(
+            l10n.currentPosition(_session.currentPosition.displayString),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // セグメント化されたプログレスバー
+          DetailedSegmentedProgressBar(
+            gridStyle: widget.gridStyle,
+            completedCount: _session.completedCount,
+            currentIndex: _session.currentIndex,
+            width: 140,
+            height: 6,
+            showLabels: false,
+          ),
+
+          const SizedBox(height: 6),
+          Text(
+            '${_session.completedCount}/${_session.gridStyle.totalCells}',
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
           ),
         ],
       ),
@@ -663,6 +710,63 @@ class _CameraScreenState extends State<CameraScreen>
     );
   }
 
+  // 横画面用の縦向きコントロール
+  Widget _buildVerticalControls(AppLocalizations l10n) {
+    return Column(
+      children: [
+        // 戻るボタン
+        IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.black.withValues(alpha: 0.5),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // フラッシュ切り替え
+        IconButton(
+          onPressed: _toggleFlashMode,
+          icon: Icon(_getFlashIcon()),
+          color: Colors.white,
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.black.withValues(alpha: 0.5),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // カメラ切り替え
+        IconButton(
+          onPressed: _switchCamera,
+          icon: const Icon(Icons.flip_camera_ios, color: Colors.white),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.black.withValues(alpha: 0.5),
+          ),
+        ),
+
+        // ズームスライダー（横画面では縦向き）
+        if (_maxZoom > _minZoom) ...[
+          const SizedBox(height: 20),
+          Container(
+            height: 120,
+            child: RotatedBox(
+              quarterTurns: -1,
+              child: Slider(
+                value: _currentZoom,
+                min: _minZoom,
+                max: _maxZoom,
+                divisions: 20,
+                onChanged: _onZoomChanged,
+                activeColor: Colors.white,
+                inactiveColor: Colors.white.withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _buildShutterButton(AppLocalizations l10n) {
     return GestureDetector(
       onTap: _isTakingPicture ? null : _takePicture,
@@ -702,8 +806,6 @@ class _CameraScreenState extends State<CameraScreen>
       ),
     );
   }
-
-  // バナー広告のビルドメソッドは削除
 
   IconData _getFlashIcon() {
     switch (_currentFlashMode) {

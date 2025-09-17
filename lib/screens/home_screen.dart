@@ -162,51 +162,131 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         opacity: _fadeAnimation,
         child: SlideTransition(
           position: _slideAnimation,
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // ヒーローセクション
-                      _buildHeroSection(theme, colorScheme, l10n),
-
-                      const SizedBox(height: 32),
-
-                      // モード選択セクション
-                      _buildModeSelectionSection(theme, l10n),
-
-                      const SizedBox(height: 32),
-
-                      // グリッドスタイル選択セクション
-                      _buildGridSelectionSection(theme, colorScheme, l10n),
-
-                      const SizedBox(height: 40),
-
-                      // 撮影開始ボタン
-                      _buildStartButton(theme, colorScheme, l10n),
-
-                      const SizedBox(height: 32),
-                    ],
-                  ),
-                ),
-              ),
-
-              // バナー広告（常に表示）
-              if (_isBannerAdReady && _bannerAd != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  alignment: Alignment.center,
-                  width: _bannerAd!.size.width.toDouble(),
-                  height: _bannerAd!.size.height.toDouble(),
-                  child: AdWidget(ad: _bannerAd!),
-                ),
-            ],
+          child: OrientationBuilder(
+            builder: (context, orientation) {
+              if (orientation == Orientation.landscape) {
+                // 横画面レイアウト
+                return _buildLandscapeLayout(theme, colorScheme, l10n);
+              } else {
+                // 縦画面レイアウト
+                return _buildPortraitLayout(theme, colorScheme, l10n);
+              }
+            },
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPortraitLayout(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    AppLocalizations l10n,
+  ) {
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ヒーローセクション
+                _buildHeroSection(theme, colorScheme, l10n),
+
+                const SizedBox(height: 32),
+
+                // モード選択セクション
+                _buildModeSelectionSection(theme, l10n),
+
+                const SizedBox(height: 32),
+
+                // グリッドスタイル選択セクション
+                _buildGridSelectionSection(theme, colorScheme, l10n),
+
+                const SizedBox(height: 40),
+
+                // 撮影開始ボタン
+                _buildStartButton(theme, colorScheme, l10n),
+
+                const SizedBox(height: 32),
+              ],
+            ),
+          ),
+        ),
+
+        // バナー広告（常に表示）
+        if (_isBannerAdReady && _bannerAd != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            alignment: Alignment.center,
+            width: _bannerAd!.size.width.toDouble(),
+            height: _bannerAd!.size.height.toDouble(),
+            child: AdWidget(ad: _bannerAd!),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildLandscapeLayout(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    AppLocalizations l10n,
+  ) {
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 左側：ヒーローセクションとモード選択
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // コンパクトなヒーローセクション
+                      _buildCompactHeroSection(theme, colorScheme, l10n),
+                      const SizedBox(height: 24),
+                      // モード選択セクション
+                      _buildModeSelectionSection(theme, l10n),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: 24),
+
+                // 右側：グリッドスタイル選択と撮影ボタン
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // グリッドスタイル選択セクション
+                      _buildGridSelectionSection(theme, colorScheme, l10n),
+                      const SizedBox(height: 24),
+                      // 撮影開始ボタン
+                      _buildStartButton(theme, colorScheme, l10n),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // バナー広告（横画面でも表示）
+        if (_isBannerAdReady && _bannerAd != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            alignment: Alignment.center,
+            width: _bannerAd!.size.width.toDouble(),
+            height: _bannerAd!.size.height.toDouble(),
+            child: AdWidget(ad: _bannerAd!),
+          ),
+      ],
     );
   }
 
@@ -278,6 +358,83 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               letterSpacing: 0.2,
             ),
             textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactHeroSection(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    AppLocalizations l10n,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primary.withOpacity(0.1),
+            colorScheme.secondary.withOpacity(0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.primary.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [colorScheme.primary, colorScheme.secondary],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.primary.withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.grid_view_rounded,
+              size: 32,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.homeTitle,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.selectPhotoStyle,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontSize: 14,
+                    color: colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -358,9 +515,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 20),
 
-          // グリッドプレビュー
+          // 修正：固定サイズのグリッドプレビュー
           Center(
             child: Container(
+              width: 160, // 固定幅
+              height: 160, // 固定高さ（正方形に固定）
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -379,7 +538,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               child: GridPreviewWidget(
                 gridStyle: _selectedGridStyle,
-                size: 140,
+                size: 128, // コンテナから余白を引いたサイズ
                 highlightIndex: 0,
               ),
             ),

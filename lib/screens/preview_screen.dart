@@ -202,8 +202,8 @@ class _PreviewScreenState extends State<PreviewScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l10n.confirmation), // 多言語化対応
-        content: Text(l10n.retakePhotos), // 多言語化対応
+        title: Text(l10n.confirmation),
+        content: Text(l10n.retakePhotos),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -211,7 +211,7 @@ class _PreviewScreenState extends State<PreviewScreen>
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l10n.retake), // 多言語化対応
+            child: Text(l10n.retake),
           ),
         ],
       ),
@@ -290,14 +290,59 @@ class _PreviewScreenState extends State<PreviewScreen>
       ),
       body: FadeTransition(
         opacity: _fadeAnimation,
-        child: Column(
-          children: [
-            Expanded(child: _buildContent(context, l10n, theme)),
-            // バナー広告（常に表示）
-            if (_isBannerAdReady && _bannerAd != null) _buildBannerAd(),
-          ],
+        child: OrientationBuilder(
+          builder: (context, orientation) {
+            if (orientation == Orientation.landscape) {
+              return _buildLandscapeLayout(context, l10n, theme);
+            } else {
+              return _buildPortraitLayout(context, l10n, theme);
+            }
+          },
         ),
       ),
+    );
+  }
+
+  Widget _buildPortraitLayout(
+    BuildContext context,
+    AppLocalizations l10n,
+    ThemeData theme,
+  ) {
+    return Column(
+      children: [
+        Expanded(child: _buildContent(context, l10n, theme)),
+        // バナー広告
+        if (_isBannerAdReady && _bannerAd != null) _buildBannerAd(),
+      ],
+    );
+  }
+
+  Widget _buildLandscapeLayout(
+    BuildContext context,
+    AppLocalizations l10n,
+    ThemeData theme,
+  ) {
+    return Column(
+      children: [
+        Expanded(
+          child: Row(
+            children: [
+              // 左側：画像表示
+              Expanded(
+                flex: 2,
+                child: _buildImageSection(context, l10n, theme),
+              ),
+              // 右側：情報とアクション
+              Expanded(
+                flex: 1,
+                child: _buildInfoAndActionsSection(context, l10n, theme),
+              ),
+            ],
+          ),
+        ),
+        // バナー広告
+        if (_isBannerAdReady && _bannerAd != null) _buildBannerAd(),
+      ],
     );
   }
 
@@ -319,6 +364,60 @@ class _PreviewScreenState extends State<PreviewScreen>
     }
 
     return Container(); // 不明な状態
+  }
+
+  Widget _buildImageSection(
+    BuildContext context,
+    AppLocalizations l10n,
+    ThemeData theme,
+  ) {
+    if (_isCompositing) {
+      return _buildCompositingView(l10n);
+    }
+
+    if (_errorMessage != null) {
+      return _buildErrorView(l10n);
+    }
+
+    if (_compositeImagePath != null) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: ScaleTransition(
+          scale: _scaleAnimation,
+          child: Card(
+            elevation: 8,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: _buildImageDisplay(),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container();
+  }
+
+  Widget _buildInfoAndActionsSection(
+    BuildContext context,
+    AppLocalizations l10n,
+    ThemeData theme,
+  ) {
+    if (_compositeImagePath == null) return Container();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 撮影情報
+          _buildImageInfo(l10n, theme),
+          const SizedBox(height: 24),
+          // アクションボタン
+          _buildActionButtons(l10n),
+        ],
+      ),
+    );
   }
 
   Widget _buildCompositingView(AppLocalizations l10n) {
@@ -384,7 +483,7 @@ class _PreviewScreenState extends State<PreviewScreen>
             l10n.compositingProgress(
               widget.session.gridStyle.totalCells,
               widget.session.gridStyle.totalCells,
-            ), // 多言語化対応
+            ),
             style: TextStyle(fontSize: 16, color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
@@ -416,7 +515,7 @@ class _PreviewScreenState extends State<PreviewScreen>
 
           // 進行状況テキスト
           Text(
-            l10n.pleaseWait, // 多言語化対応
+            l10n.pleaseWait,
             style: TextStyle(fontSize: 14, color: Colors.grey[500]),
           ),
         ],
@@ -447,12 +546,9 @@ class _PreviewScreenState extends State<PreviewScreen>
             ElevatedButton(
               onPressed: _startCompositing,
               child: Text(l10n.retry),
-            ), // 多言語化対応
+            ),
             const SizedBox(height: 12),
-            TextButton(
-              onPressed: _retakePhoto,
-              child: Text(l10n.retake),
-            ), // 多言語化対応
+            TextButton(onPressed: _retakePhoto, child: Text(l10n.retake)),
           ],
         ),
       ),
@@ -465,7 +561,7 @@ class _PreviewScreenState extends State<PreviewScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 合成画像の表示（修正版：完全な画像を表示）
+          // 合成画像の表示
           ScaleTransition(
             scale: _scaleAnimation,
             child: Card(
@@ -491,7 +587,7 @@ class _PreviewScreenState extends State<PreviewScreen>
     );
   }
 
-  /// 画像表示ウィジェット（修正版：アスペクト比を適切に処理）
+  /// 画像表示ウィジェット（アスペクト比適応修正版）
   Widget _buildImageDisplay() {
     return FutureBuilder<Size?>(
       future: _getImageSize(_compositeImagePath!),
@@ -504,27 +600,51 @@ class _PreviewScreenState extends State<PreviewScreen>
         }
 
         final imageSize = snapshot.data!;
+        final screenWidth = MediaQuery.of(context).size.width - 32;
+        final screenHeight = MediaQuery.of(context).size.height;
+        final orientation = MediaQuery.of(context).orientation;
 
-        // 画面幅に基づいて適切な表示サイズを計算
-        final screenWidth = MediaQuery.of(context).size.width - 32; // パディング考慮
+        // 横画面の場合は利用可能な高さを考慮
+        final maxHeight = orientation == Orientation.landscape
+            ? screenHeight *
+                  0.8 // 横画面時は80%
+            : screenHeight * 0.7; // 縦画面時は70%
+
         final aspectRatio = imageSize.width / imageSize.height;
 
-        // 最大高さを画面の70%に制限
-        final maxHeight = MediaQuery.of(context).size.height * 0.7;
-        final calculatedHeight = screenWidth / aspectRatio;
-        final displayHeight = calculatedHeight > maxHeight
-            ? maxHeight
-            : calculatedHeight;
-        final displayWidth = displayHeight * aspectRatio;
+        // 表示サイズを計算
+        double displayWidth, displayHeight;
+
+        if (orientation == Orientation.landscape) {
+          // 横画面では高さ基準で計算
+          displayHeight = maxHeight;
+          displayWidth = displayHeight * aspectRatio;
+
+          // 画面幅を超える場合は幅基準に変更
+          if (displayWidth > screenWidth * 0.6) {
+            // 横画面では60%まで
+            displayWidth = screenWidth * 0.6;
+            displayHeight = displayWidth / aspectRatio;
+          }
+        } else {
+          // 縦画面では幅基準で計算
+          displayWidth = screenWidth;
+          displayHeight = displayWidth / aspectRatio;
+
+          // 高さが最大値を超える場合は調整
+          if (displayHeight > maxHeight) {
+            displayHeight = maxHeight;
+            displayWidth = displayHeight * aspectRatio;
+          }
+        }
 
         return Container(
           width: displayWidth,
           height: displayHeight,
           child: Image.file(
             File(_compositeImagePath!),
-            fit: BoxFit.contain, // 画像全体を表示（contain で完全に表示）
+            fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {
-              final l10n = AppLocalizations.of(context)!;
               return Container(
                 color: Colors.grey[300],
                 child: Column(
@@ -533,7 +653,7 @@ class _PreviewScreenState extends State<PreviewScreen>
                     Icon(Icons.broken_image, size: 48, color: Colors.grey[600]),
                     const SizedBox(height: 8),
                     Text(
-                      '画像の読み込みに失敗しました', // このエラーメッセージも多言語化可能
+                      '画像の読み込みに失敗しました',
                       style: TextStyle(color: Colors.grey[600]),
                     ),
                   ],
@@ -572,25 +692,22 @@ class _PreviewScreenState extends State<PreviewScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              l10n.shootingInfo, // 多言語化対応
+              l10n.shootingInfo,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 12),
-            _buildInfoRow(l10n.mode, _getModeDisplayName()), // 多言語化対応
+            _buildInfoRow(l10n.mode, _getModeDisplayName()),
             _buildInfoRow(
               l10n.gridStyleInfo,
               widget.session.gridStyle.displayName,
-            ), // 多言語化対応
+            ),
             _buildInfoRow(
               l10n.photoCount,
               l10n.photosCount(widget.session.completedCount),
-            ), // 多言語化対応
-            _buildInfoRow(
-              l10n.shootingDate,
-              _formatDateTime(DateTime.now()),
-            ), // 多言語化対応
+            ),
+            _buildInfoRow(l10n.shootingDate, _formatDateTime(DateTime.now())),
           ],
         ),
       ),
@@ -636,7 +753,7 @@ class _PreviewScreenState extends State<PreviewScreen>
                 )
               : const Icon(Icons.save_alt),
           label: Text(
-            _isSaving ? l10n.saving : l10n.save, // 多言語化対応
+            _isSaving ? l10n.saving : l10n.save,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           style: ElevatedButton.styleFrom(
@@ -657,7 +774,7 @@ class _PreviewScreenState extends State<PreviewScreen>
                 )
               : const Icon(Icons.share),
           label: Text(
-            _isSharing ? l10n.sharing : l10n.share, // 多言語化対応
+            _isSharing ? l10n.sharing : l10n.share,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           style: OutlinedButton.styleFrom(
@@ -671,10 +788,7 @@ class _PreviewScreenState extends State<PreviewScreen>
         TextButton.icon(
           onPressed: _retakePhoto,
           icon: const Icon(Icons.camera_alt),
-          label: Text(
-            l10n.takeNewPhoto,
-            style: const TextStyle(fontSize: 16),
-          ), // 多言語化対応
+          label: Text(l10n.takeNewPhoto, style: const TextStyle(fontSize: 16)),
           style: TextButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
@@ -696,9 +810,9 @@ class _PreviewScreenState extends State<PreviewScreen>
     final l10n = AppLocalizations.of(context)!;
     switch (widget.session.mode) {
       case ShootingMode.catalog:
-        return l10n.catalogModeDisplay; // 多言語化対応
+        return l10n.catalogModeDisplay;
       case ShootingMode.impossible:
-        return l10n.impossibleModeDisplay; // 多言語化対応
+        return l10n.impossibleModeDisplay;
     }
   }
 

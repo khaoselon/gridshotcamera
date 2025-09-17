@@ -82,17 +82,10 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
     final borderWidth =
         widget.borderWidth ?? (widget.showBorders ? settings.borderWidth : 0.0);
 
-    // グリッドの縦横比を計算（正方形に近づける）
-    final cellAspectRatio = widget.gridStyle.columns / widget.gridStyle.rows;
-    final containerHeight = widget.size / cellAspectRatio;
-
     return Container(
+      // 固定サイズで表示（アスペクト比に関わらず正方形）
       width: widget.size,
-      height: containerHeight,
-      constraints: BoxConstraints(
-        maxHeight: widget.size * 1.5, // 最大高さを制限
-        minHeight: widget.size * 0.5, // 最小高さを設定
-      ),
+      height: widget.size,
       decoration: BoxDecoration(
         border: Border.all(color: theme.dividerColor, width: 1),
         borderRadius: BorderRadius.circular(8),
@@ -106,65 +99,65 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: GridView.builder(
-          physics: const NeverScrollableScrollPhysics(),
-          shrinkWrap: true, // 重要: 内容に合わせてサイズを調整
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: widget.gridStyle.columns, // 列数
-            childAspectRatio: 1.0, // セルを正方形に
-            crossAxisSpacing: borderWidth,
-            mainAxisSpacing: borderWidth,
-          ),
-          itemCount: widget.gridStyle.totalCells,
-          itemBuilder: (context, index) {
-            final isHighlighted = widget.highlightIndex == index;
-            final position = widget.gridStyle.getPosition(index);
-
-            Widget cell = Container(
-              decoration: BoxDecoration(
-                color: isHighlighted
-                    ? theme.primaryColor.withOpacity(0.3)
-                    : theme.cardColor,
-                border: borderWidth > 0
-                    ? Border.all(color: borderColor, width: borderWidth)
-                    : null,
-                borderRadius: BorderRadius.circular(2),
+        child: AnimatedBuilder(
+          animation: _pulseAnimation,
+          builder: (context, child) {
+            return GridView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              shrinkWrap: true,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: widget.gridStyle.columns, // 列数
+                childAspectRatio: 1.0, // セルを正方形に固定
+                crossAxisSpacing: borderWidth,
+                mainAxisSpacing: borderWidth,
               ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _getCellIcon(index),
-                      size: _getIconSize(),
-                      color: isHighlighted
-                          ? theme.primaryColor
-                          : theme.iconTheme.color?.withOpacity(0.6),
-                    ),
-                    if (widget.size > 80) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        position.displayString,
-                        style: TextStyle(
-                          fontSize: _getTextSize(),
-                          fontWeight: FontWeight.bold,
+              itemCount: widget.gridStyle.totalCells,
+              itemBuilder: (context, index) {
+                final isHighlighted = widget.highlightIndex == index;
+                final position = widget.gridStyle.getPosition(index);
+
+                Widget cell = Container(
+                  decoration: BoxDecoration(
+                    color: isHighlighted
+                        ? theme.primaryColor.withOpacity(0.3)
+                        : theme.cardColor,
+                    border: borderWidth > 0
+                        ? Border.all(color: borderColor, width: borderWidth)
+                        : null,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _getCellIcon(index),
+                          size: _getIconSize(),
                           color: isHighlighted
                               ? theme.primaryColor
-                              : theme.textTheme.bodySmall?.color,
+                              : theme.iconTheme.color?.withOpacity(0.6),
                         ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            );
+                        if (widget.size > 80) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            position.displayString,
+                            style: TextStyle(
+                              fontSize: _getTextSize(),
+                              fontWeight: FontWeight.bold,
+                              color: isHighlighted
+                                  ? theme.primaryColor
+                                  : theme.textTheme.bodySmall?.color,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
 
-            // ハイライト表示がある場合はアニメーション付きにする
-            if (isHighlighted) {
-              cell = AnimatedBuilder(
-                animation: _pulseAnimation,
-                builder: (context, child) {
-                  return Transform.scale(
+                // ハイライト表示がある場合はアニメーション付きにする
+                if (isHighlighted) {
+                  cell = Transform.scale(
                     scale: _pulseAnimation.value,
                     child: Container(
                       decoration: BoxDecoration(
@@ -177,15 +170,14 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
                           ),
                         ],
                       ),
-                      child: child,
+                      child: cell,
                     ),
                   );
-                },
-                child: cell,
-              );
-            }
+                }
 
-            return cell;
+                return cell;
+              },
+            );
           },
         ),
       ),
@@ -193,7 +185,7 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
   }
 
   double _getIconSize() {
-    // グリッドサイズに応じてアイコンサイズを調整
+    // 固定サイズに基づいてアイコンサイズを計算
     final cellSize =
         widget.size /
         (widget.gridStyle.columns > widget.gridStyle.rows
@@ -204,7 +196,7 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
   }
 
   double _getTextSize() {
-    // グリッドサイズに応じてテキストサイズを調整
+    // 固定サイズに基づいてテキストサイズを計算
     final cellSize =
         widget.size /
         (widget.gridStyle.columns > widget.gridStyle.rows
@@ -234,7 +226,7 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
   }
 }
 
-// グリッドオーバーレイ（カメラ画面で使用）- モード対応版
+// グリッドオーバーレイ（カメラ画面で使用）- 横画面対応版
 class GridOverlay extends StatelessWidget {
   final GridStyle gridStyle;
   final Size size;
@@ -242,7 +234,7 @@ class GridOverlay extends StatelessWidget {
   final Color borderColor;
   final double borderWidth;
   final bool showCellNumbers;
-  final ShootingMode? shootingMode; // 追加：撮影モード
+  final ShootingMode? shootingMode;
 
   const GridOverlay({
     super.key,
@@ -252,7 +244,7 @@ class GridOverlay extends StatelessWidget {
     this.borderColor = Colors.white,
     this.borderWidth = 2.0,
     this.showCellNumbers = true,
-    this.shootingMode, // 撮影モード
+    this.shootingMode,
   });
 
   @override
@@ -269,6 +261,7 @@ class GridOverlay extends StatelessWidget {
           showCellNumbers: showCellNumbers,
           textColor: Colors.white,
           shootingMode: shootingMode,
+          screenSize: size, // 画面サイズを渡す
         ),
       ),
     );
@@ -283,6 +276,7 @@ class GridPainter extends CustomPainter {
   final bool showCellNumbers;
   final Color textColor;
   final ShootingMode? shootingMode;
+  final Size screenSize; // 追加：画面サイズ
 
   GridPainter({
     required this.gridStyle,
@@ -292,6 +286,7 @@ class GridPainter extends CustomPainter {
     required this.showCellNumbers,
     required this.textColor,
     this.shootingMode,
+    required this.screenSize, // 追加
   });
 
   @override
@@ -307,6 +302,7 @@ class GridPainter extends CustomPainter {
       ..color = borderColor.withOpacity(0.2)
       ..style = PaintingStyle.fill;
 
+    // 横画面・縦画面に関わらず適切なセルサイズを計算
     final cellWidth = size.width / gridStyle.columns;
     final cellHeight = size.height / gridStyle.rows;
 
@@ -432,58 +428,12 @@ class GridPainter extends CustomPainter {
         ..strokeWidth = borderWidth * 3
         ..style = PaintingStyle.stroke;
       canvas.drawRect(rect, currentCellPaint);
-
-      // 撮影エリアの説明テキスト
-      _drawShootingInstructions(canvas, rect, position);
     }
-
-    // 完了したセルを薄く表示
-    _drawCompletedCells(canvas, cellWidth, cellHeight);
 
     // セル番号を描画（現在のセルのみ強調）
     if (showCellNumbers) {
       _drawCellNumbers(canvas, cellWidth, cellHeight, '不可能合成');
     }
-  }
-
-  void _drawShootingInstructions(
-    Canvas canvas,
-    Rect rect,
-    GridPosition position,
-  ) {
-    // 撮影中のセルに指示テキストを表示
-    //final textPainter = TextPainter(textDirection: TextDirection.ltr);
-
-    //textPainter.text = TextSpan(
-    //  text: '${position.displayString}エリア\nを撮影',
-    //  style: TextStyle(
-    //    color: textColor,
-    //    fontSize: 16,
-    //    fontWeight: FontWeight.bold,
-    //    shadows: [
-    //      Shadow(
-    //       offset: const Offset(1, 1),
-    //        blurRadius: 4,
-    //        color: Colors.black.withOpacity(0.8),
-    //      ),
-    //    ],
-    //  ),
-    //);
-
-    //textPainter.layout();
-
-    //final centerX = rect.center.dx;
-    //final centerY = rect.center.dy;
-
-    //textPainter.paint(
-    //  canvas,
-    //  Offset(centerX - textPainter.width / 2, centerY - textPainter.height / 2),
-    //);
-  }
-
-  void _drawCompletedCells(Canvas canvas, double cellWidth, double cellHeight) {
-    // 完了したセルを薄く表示（実装簡略化）
-    // 実際のプロダクションでは、ShootingSessionの状態を受け取って描画
   }
 
   void _drawCellNumbers(
@@ -493,7 +443,9 @@ class GridPainter extends CustomPainter {
     String mode,
   ) {
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
-    final fontSize = (cellWidth + cellHeight) / 12;
+
+    // 画面サイズに応じて適切なフォントサイズを計算
+    final fontSize = _calculateFontSize(cellWidth, cellHeight);
 
     for (int i = 0; i < gridStyle.totalCells; i++) {
       final position = gridStyle.getPosition(i);
@@ -508,7 +460,7 @@ class GridPainter extends CustomPainter {
         text: position.displayString,
         style: TextStyle(
           color: textColor.withOpacity(opacity),
-          fontSize: fontSize.clamp(12.0, 20.0),
+          fontSize: fontSize,
           fontWeight: isCurrentCell ? FontWeight.bold : FontWeight.w600,
           shadows: [
             Shadow(
@@ -553,6 +505,18 @@ class GridPainter extends CustomPainter {
     }
   }
 
+  // 画面サイズに応じたフォントサイズを計算
+  double _calculateFontSize(double cellWidth, double cellHeight) {
+    final baseSize = (cellWidth + cellHeight) / 12;
+
+    // 横画面の場合、セルが小さくなる可能性があるので調整
+    if (screenSize.width > screenSize.height) {
+      return baseSize.clamp(10.0, 18.0);
+    } else {
+      return baseSize.clamp(12.0, 20.0);
+    }
+  }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return oldDelegate is! GridPainter ||
@@ -560,7 +524,8 @@ class GridPainter extends CustomPainter {
         oldDelegate.gridStyle != gridStyle ||
         oldDelegate.borderColor != borderColor ||
         oldDelegate.borderWidth != borderWidth ||
-        oldDelegate.shootingMode != shootingMode;
+        oldDelegate.shootingMode != shootingMode ||
+        oldDelegate.screenSize != screenSize; // 追加
   }
 }
 
