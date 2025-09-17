@@ -13,6 +13,7 @@ import 'package:gridshot_camera/services/settings_service.dart';
 import 'package:gridshot_camera/screens/preview_screen.dart';
 import 'package:gridshot_camera/widgets/grid_preview_widget.dart';
 import 'package:gridshot_camera/widgets/loading_widget.dart';
+import 'package:gridshot_camera/widgets/segmented_progress_bar.dart';
 
 class CameraScreen extends StatefulWidget {
   final ShootingMode mode;
@@ -568,7 +569,7 @@ class _CameraScreenState extends State<CameraScreen>
 
           // 撮影情報
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.7),
               borderRadius: BorderRadius.circular(20),
@@ -583,32 +584,19 @@ class _CameraScreenState extends State<CameraScreen>
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 6),
-                // プログレスバー
-                AnimatedBuilder(
-                  animation: _progressAnimation,
-                  builder: (context, child) {
-                    return Container(
-                      width: 120,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(2),
-                        color: Colors.white.withValues(alpha: 0.3),
-                      ),
-                      child: FractionallySizedBox(
-                        alignment: Alignment.centerLeft,
-                        widthFactor: _progressAnimation.value,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(2),
-                            color: Colors.blue,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                const SizedBox(height: 8),
+
+                // セグメント化されたプログレスバー
+                DetailedSegmentedProgressBar(
+                  gridStyle: widget.gridStyle,
+                  completedCount: _session.completedCount,
+                  currentIndex: _session.currentIndex,
+                  width: 140,
+                  height: 6,
+                  showLabels: false, // ラベルは上で表示しているのでfalse
                 ),
-                const SizedBox(height: 4),
+
+                const SizedBox(height: 6),
                 Text(
                   '${_session.completedCount}/${_session.gridStyle.totalCells}',
                   style: const TextStyle(color: Colors.white70, fontSize: 12),
