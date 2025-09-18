@@ -340,6 +340,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     ColorScheme colorScheme,
   ) {
     return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       title: Text(
         l10n.language,
         style: theme.textTheme.titleMedium?.copyWith(
@@ -347,14 +348,21 @@ class _SettingsScreenState extends State<SettingsScreen>
           color: colorScheme.onSurface,
         ),
       ),
-      subtitle: Text(
-        _getLanguageDisplayName(settings.languageCode, l10n),
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: colorScheme.onSurface.withOpacity(0.7),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text(
+          _getLanguageDisplayName(settings.languageCode, l10n),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurface.withOpacity(0.7),
+          ),
         ),
       ),
       trailing: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        constraints: const BoxConstraints(
+          minWidth: 140, // 最小幅を確保
+          maxWidth: 180, // 最大幅も制限
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: colorScheme.primary.withOpacity(0.1),
           borderRadius: BorderRadius.circular(20),
@@ -366,6 +374,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         child: DropdownButton<String>(
           value: settings.languageCode,
           underline: const SizedBox(),
+          isExpanded: true, // 追加：幅を最大限に使用
           icon: Icon(
             Icons.keyboard_arrow_down_rounded,
             color: colorScheme.primary,
@@ -394,9 +403,16 @@ class _SettingsScreenState extends State<SettingsScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🌍'),
+            const Text('🌍', style: TextStyle(fontSize: 16)),
             const SizedBox(width: 8),
-            Text(l10n.systemDefault),
+            Expanded(
+              // 追加：テキスト部分を拡張
+              child: Text(
+                l10n.systemDefault,
+                style: const TextStyle(fontSize: 14),
+                overflow: TextOverflow.ellipsis, // 追加：オーバーフロー処理
+              ),
+            ),
           ],
         ),
       ),
@@ -407,9 +423,15 @@ class _SettingsScreenState extends State<SettingsScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🇯🇵'),
+            const Text('🇯🇵', style: TextStyle(fontSize: 16)),
             const SizedBox(width: 8),
-            Text(l10n.japanese),
+            Expanded(
+              child: Text(
+                l10n.japanese,
+                style: const TextStyle(fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
@@ -420,9 +442,15 @@ class _SettingsScreenState extends State<SettingsScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🇺🇸'),
+            const Text('🇺🇸', style: TextStyle(fontSize: 16)),
             const SizedBox(width: 8),
-            Text(l10n.english),
+            Expanded(
+              child: Text(
+                l10n.english,
+                style: const TextStyle(fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
@@ -433,9 +461,15 @@ class _SettingsScreenState extends State<SettingsScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🇩🇪'),
+            const Text('🇩🇪', style: TextStyle(fontSize: 16)),
             const SizedBox(width: 8),
-            const Text('Deutsch'),
+            Expanded(
+              child: Text(
+                'Deutsch',
+                style: const TextStyle(fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
@@ -446,9 +480,15 @@ class _SettingsScreenState extends State<SettingsScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🇪🇸'),
+            const Text('🇪🇸', style: TextStyle(fontSize: 16)),
             const SizedBox(width: 8),
-            const Text('Español'),
+            Expanded(
+              child: Text(
+                'Español',
+                style: const TextStyle(fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
@@ -459,9 +499,15 @@ class _SettingsScreenState extends State<SettingsScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🇮🇹'),
+            const Text('🇮🇹', style: TextStyle(fontSize: 16)),
             const SizedBox(width: 8),
-            const Text('Italiano'),
+            Expanded(
+              child: Text(
+                'Italiano',
+                style: const TextStyle(fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
@@ -472,9 +518,15 @@ class _SettingsScreenState extends State<SettingsScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🇰🇷'),
+            const Text('🇰🇷', style: TextStyle(fontSize: 16)),
             const SizedBox(width: 8),
-            const Text('한국어'),
+            Expanded(
+              child: Text(
+                '한국어',
+                style: const TextStyle(fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
@@ -485,9 +537,15 @@ class _SettingsScreenState extends State<SettingsScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🇵🇹'),
+            const Text('🇵🇹', style: TextStyle(fontSize: 16)),
             const SizedBox(width: 8),
-            const Text('Português'),
+            Expanded(
+              child: Text(
+                'Português',
+                style: const TextStyle(fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
@@ -498,9 +556,15 @@ class _SettingsScreenState extends State<SettingsScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🇨🇳'),
+            const Text('🇨🇳', style: TextStyle(fontSize: 16)),
             const SizedBox(width: 8),
-            const Text('简体中文'),
+            Expanded(
+              child: Text(
+                '简体中文',
+                style: const TextStyle(fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
@@ -511,9 +575,15 @@ class _SettingsScreenState extends State<SettingsScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🇹🇼'),
+            const Text('🇹🇼', style: TextStyle(fontSize: 16)),
             const SizedBox(width: 8),
-            const Text('繁體中文'),
+            Expanded(
+              child: Text(
+                '繁體中文',
+                style: const TextStyle(fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
