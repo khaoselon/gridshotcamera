@@ -145,17 +145,18 @@ class SettingsService extends ChangeNotifier {
   /// 設定の妥当性をチェック
   bool validateSettings() {
     try {
-      // 言語コードの妥当性チェック（修正版）
+      // 言語コードの妥当性チェック（修正：中国語簡体字を含む完全版）
       final validLanguageCodes = [
-        'system',
-        'ja',
-        'en',
-        'it',
-        'es',
-        'de',
-        'ko',
-        'pt',
-        'zh-Hant',
+        'system', // システムデフォルト
+        'ja', // 日本語
+        'en', // 英語
+        'de', // ドイツ語
+        'es', // スペイン語
+        'it', // イタリア語
+        'ko', // 韓国語
+        'pt', // ポルトガル語
+        'zh', // 中国語簡体字
+        'zh-Hant', // 中国語繁体字
       ];
 
       if (!validLanguageCodes.contains(_currentSettings.languageCode)) {

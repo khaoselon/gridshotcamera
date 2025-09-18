@@ -332,6 +332,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
+  // 修正：すべてのサポート言語を含む完全な多言語ドロップダウン
   Widget _buildLanguageTile(
     AppSettings settings,
     AppLocalizations l10n,
@@ -371,41 +372,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
           dropdownColor: theme.cardColor,
           borderRadius: BorderRadius.circular(12),
-          items: [
-            DropdownMenuItem(
-              value: 'system',
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('🌍'),
-                  const SizedBox(width: 8),
-                  Text('System Default'),
-                ],
-              ),
-            ),
-            DropdownMenuItem(
-              value: 'ja',
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('🇯🇵'),
-                  const SizedBox(width: 8),
-                  Text(l10n.japanese),
-                ],
-              ),
-            ),
-            DropdownMenuItem(
-              value: 'en',
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('🇺🇸'),
-                  const SizedBox(width: 8),
-                  Text(l10n.english),
-                ],
-              ),
-            ),
-          ],
+          items: _buildLanguageDropdownItems(l10n),
           onChanged: (value) async {
             if (value != null) {
               await SettingsService.instance.updateLanguage(value);
@@ -414,6 +381,143 @@ class _SettingsScreenState extends State<SettingsScreen>
         ),
       ),
     );
+  }
+
+  // 完全な言語ドロップダウンアイテムリストを構築
+  List<DropdownMenuItem<String>> _buildLanguageDropdownItems(
+    AppLocalizations l10n,
+  ) {
+    return [
+      // システムデフォルト
+      DropdownMenuItem(
+        value: 'system',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🌍'),
+            const SizedBox(width: 8),
+            Text(l10n.systemDefault),
+          ],
+        ),
+      ),
+
+      // 日本語
+      DropdownMenuItem(
+        value: 'ja',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🇯🇵'),
+            const SizedBox(width: 8),
+            Text(l10n.japanese),
+          ],
+        ),
+      ),
+
+      // 英語
+      DropdownMenuItem(
+        value: 'en',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🇺🇸'),
+            const SizedBox(width: 8),
+            Text(l10n.english),
+          ],
+        ),
+      ),
+
+      // ドイツ語
+      DropdownMenuItem(
+        value: 'de',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🇩🇪'),
+            const SizedBox(width: 8),
+            const Text('Deutsch'),
+          ],
+        ),
+      ),
+
+      // スペイン語
+      DropdownMenuItem(
+        value: 'es',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🇪🇸'),
+            const SizedBox(width: 8),
+            const Text('Español'),
+          ],
+        ),
+      ),
+
+      // イタリア語
+      DropdownMenuItem(
+        value: 'it',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🇮🇹'),
+            const SizedBox(width: 8),
+            const Text('Italiano'),
+          ],
+        ),
+      ),
+
+      // 韓国語
+      DropdownMenuItem(
+        value: 'ko',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🇰🇷'),
+            const SizedBox(width: 8),
+            const Text('한국어'),
+          ],
+        ),
+      ),
+
+      // ポルトガル語
+      DropdownMenuItem(
+        value: 'pt',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🇵🇹'),
+            const SizedBox(width: 8),
+            const Text('Português'),
+          ],
+        ),
+      ),
+
+      // 中国語簡体字
+      DropdownMenuItem(
+        value: 'zh',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🇨🇳'),
+            const SizedBox(width: 8),
+            const Text('简体中文'),
+          ],
+        ),
+      ),
+
+      // 中国語繁体字
+      DropdownMenuItem(
+        value: 'zh-Hant',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🇹🇼'),
+            const SizedBox(width: 8),
+            const Text('繁體中文'),
+          ],
+        ),
+      ),
+    ];
   }
 
   Widget _buildGridBorderTile(
@@ -816,15 +920,29 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  /// 言語表示名を取得
+  // 修正：完全な言語表示名対応
   String _getLanguageDisplayName(String languageCode, AppLocalizations l10n) {
     switch (languageCode) {
       case 'system':
-        return 'System Default';
+        return l10n.systemDefault;
       case 'ja':
         return '日本語';
       case 'en':
         return 'English';
+      case 'de':
+        return 'Deutsch';
+      case 'es':
+        return 'Español';
+      case 'it':
+        return 'Italiano';
+      case 'ko':
+        return '한국어';
+      case 'pt':
+        return 'Português';
+      case 'zh':
+        return '简体中文';
+      case 'zh-Hant':
+        return '繁體中文';
       default:
         return languageCode;
     }

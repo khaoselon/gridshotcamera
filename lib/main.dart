@@ -181,23 +181,27 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
       title: 'GridShot Camera',
       debugShowCheckedModeBanner: false,
 
-      // 多言語化設定
+      // 多言語化設定 - 完全版
       localizationsDelegates: const [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+
+      // 修正：すべてのサポート言語を含む
       supportedLocales: const [
         Locale('ja'), // 日本語
         Locale('en'), // 英語
-        Locale('it'), // イタリア語
-        Locale('es'), // スペイン語
         Locale('de'), // ドイツ語
+        Locale('es'), // スペイン語
+        Locale('it'), // イタリア語
         Locale('ko'), // 韓国語
         Locale('pt'), // ポルトガル語
+        Locale('zh'), // 中国語簡体字
         Locale('zh', 'Hant'), // 中国語繁体字
       ],
+
       locale: _getEffectiveLocale(),
 
       // 明るいテーマ設定
