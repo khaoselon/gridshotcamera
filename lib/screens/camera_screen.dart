@@ -66,7 +66,6 @@ class _CameraScreenState extends State<CameraScreen>
     _flashAnimationController.dispose();
     _progressAnimationController.dispose();
 
-    // CameraServiceの破棄
     _cameraService.dispose();
 
     super.dispose();
@@ -101,7 +100,6 @@ class _CameraScreenState extends State<CameraScreen>
     );
   }
 
-  /// カメラ初期化（権限チェックを削除）
   Future<void> _initializeCamera() async {
     if (_isScreenDisposed) return;
 
@@ -113,25 +111,21 @@ class _CameraScreenState extends State<CameraScreen>
     try {
       debugPrint('カメラサービスを初期化します');
 
-      // カメラサービス初期化（権限はホーム画面で確認済み）
       _cameraService = CameraService();
       _cameraService.addListener(_onCameraServiceChanged);
 
       final success = await _cameraService.initialize();
       if (success && mounted && !_isScreenDisposed) {
-        // ズーム範囲を取得
         _minZoom = 1.0;
         _maxZoom = await _cameraService.getMaxZoomLevel();
         _currentZoom = await _cameraService.getCurrentZoomLevel();
 
-        // 撮影設定を適用
         await _cameraService.applyShootingSettings(_session);
 
         setState(() {
           _isInitializing = false;
         });
 
-        // プログレスアニメーションを開始
         _updateProgressAnimation();
 
         debugPrint('カメラの初期化が完了しました');
@@ -180,21 +174,18 @@ class _CameraScreenState extends State<CameraScreen>
     });
 
     try {
-      // フラッシュアニメーション
       _flashAnimationController.forward().then((_) {
         if (!_isScreenDisposed) {
           _flashAnimationController.reverse();
         }
       });
 
-      // 撮影実行
       final currentPosition = _session.currentPosition;
       final filePath = await _cameraService.takePicture(
         position: currentPosition,
       );
 
       if (filePath != null && mounted && !_isScreenDisposed) {
-        // 撮影成功
         final capturedImage = CapturedImage(
           filePath: filePath,
           timestamp: DateTime.now(),
@@ -202,19 +193,13 @@ class _CameraScreenState extends State<CameraScreen>
         );
 
         _session.captureImage(capturedImage);
-
-        // プログレスアニメーションを更新
         _updateProgressAnimation();
-
-        // 撮影完了の効果音やハプティックフィードバック
         HapticFeedback.lightImpact();
 
-        // 次の位置に移動
         if (!_session.isCompleted) {
           _session.moveToNext();
         }
 
-        // 全て撮影完了した場合
         if (_session.isCompleted) {
           await _onShootingCompleted();
         }
@@ -237,12 +222,10 @@ class _CameraScreenState extends State<CameraScreen>
   Future<void> _onShootingCompleted() async {
     if (_isScreenDisposed) return;
 
-    // 完了時の広告表示
     await AdService.instance.showInterstitialAd();
 
     if (!mounted || _isScreenDisposed) return;
 
-    // プレビュー画面に移動
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (context) => PreviewScreen(session: _session)),
     );
@@ -291,13 +274,10 @@ class _CameraScreenState extends State<CameraScreen>
     final screenSize = renderBox.size;
 
     _cameraService.setFocusPoint(tapPosition, screenSize);
-
-    // フォーカスポイントの視覚的フィードバック
     _showFocusPoint(tapPosition);
   }
 
   void _showFocusPoint(Offset position) {
-    // フォーカスポイントの視覚的表示（実装を簡略化）
     HapticFeedback.selectionClick();
   }
 
@@ -323,7 +303,6 @@ class _CameraScreenState extends State<CameraScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_isScreenDisposed) return;
 
-    // より安全なライフサイクル管理
     switch (state) {
       case AppLifecycleState.inactive:
         debugPrint('CameraScreen: アプリが非アクティブになりました');
@@ -376,10 +355,7 @@ class _CameraScreenState extends State<CameraScreen>
 
     return Stack(
       children: [
-        // カメラプレビュー
         _buildCameraPreview(),
-
-        // フラッシュオーバーレイ
         AnimatedBuilder(
           animation: _flashAnimation,
           builder: (context, child) {
@@ -392,11 +368,7 @@ class _CameraScreenState extends State<CameraScreen>
                 : const SizedBox.shrink();
           },
         ),
-
-        // グリッドオーバーレイ
         _buildGridOverlay(),
-
-        // UI コントロール（画面向き対応）
         if (orientation == Orientation.portrait)
           _buildPortraitUIControls(l10n, theme)
         else
@@ -448,7 +420,6 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Widget _buildCameraPreview() {
-    // より厳密な状態チェック
     if (!_cameraService.isInitialized ||
         _cameraService.controller == null ||
         _cameraService.isDisposed ||
@@ -476,20 +447,14 @@ class _CameraScreenState extends State<CameraScreen>
         builder: (context, constraints) {
           final controller = _cameraService.controller!;
           final screenSize = Size(constraints.maxWidth, constraints.maxHeight);
-
-          // カメラのアスペクト比を取得
           final cameraAspectRatio = controller.value.aspectRatio;
-
-          // 画面のアスペクト比を計算
           final screenAspectRatio = screenSize.width / screenSize.height;
 
           double scaleX, scaleY;
           if (cameraAspectRatio > screenAspectRatio) {
-            // カメラの方が横長の場合、高さに合わせる
             scaleY = screenSize.height;
             scaleX = screenSize.height * cameraAspectRatio;
           } else {
-            // カメラの方が縦長の場合、幅に合わせる
             scaleX = screenSize.width;
             scaleY = screenSize.width / cameraAspectRatio;
           }
@@ -530,64 +495,146 @@ class _CameraScreenState extends State<CameraScreen>
     );
   }
 
-  // 縦画面用UIコントロール
   Widget _buildPortraitUIControls(AppLocalizations l10n, ThemeData theme) {
     return SafeArea(
       child: Column(
         children: [
-          // 上部コントロール
           _buildTopControls(l10n),
           const Spacer(),
-          // 下部コントロール
           _buildBottomControls(l10n, theme),
         ],
       ),
     );
   }
 
-  // 横画面用UIコントロール
+  // 修正：横画面UIを改善
   Widget _buildLandscapeUIControls(AppLocalizations l10n, ThemeData theme) {
     return SafeArea(
       child: Row(
         children: [
-          // 左側コントロール
-          Container(
-            width: 120,
+          // 左側コントロール（縦配置）
+          SizedBox(
+            width: 80,
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                const Spacer(),
-                _buildVerticalControls(l10n),
-                const Spacer(),
+                // 戻るボタン
+                _buildControlButton(
+                  icon: Icons.arrow_back,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                // フラッシュ切り替え
+                _buildControlButton(
+                  icon: _getFlashIcon(),
+                  onPressed: _toggleFlashMode,
+                ),
+                // カメラ切り替え
+                _buildControlButton(
+                  icon: Icons.flip_camera_ios,
+                  onPressed: _switchCamera,
+                ),
+                // ズームスライダー（縦向き）
+                if (_maxZoom > _minZoom) _buildVerticalZoomSlider(),
               ],
             ),
           ),
+          // 中央（カメラプレビューエリア）
           const Spacer(),
           // 右側コントロール
-          Container(
-            width: 200,
+          SizedBox(
+            width: 160,
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                // 上部情報
-                Container(
-                  padding: const EdgeInsets.all(16.0),
-                  child: _buildShootingInfo(l10n),
-                ),
-                const Spacer(),
+                // 撮影情報（コンパクト版）
+                _buildCompactShootingInfo(l10n),
                 // 撮影ボタン
                 _buildShutterButton(l10n),
-                const SizedBox(height: 20),
                 // 撮り直しボタン
                 if (_session.hasCurrentImage)
-                  IconButton(
+                  _buildControlButton(
+                    icon: Icons.refresh,
                     onPressed: _retakeCurrentPicture,
-                    icon: const Icon(Icons.refresh, color: Colors.white),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.black.withValues(alpha: 0.5),
-                    ),
-                  ),
-                const Spacer(),
+                  )
+                else
+                  const SizedBox(height: 48),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildControlButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+    Color? backgroundColor,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: IconButton(
+        onPressed: onPressed,
+        icon: Icon(icon, color: Colors.white, size: 24),
+        style: IconButton.styleFrom(
+          backgroundColor:
+              backgroundColor ?? Colors.black.withValues(alpha: 0.5),
+          shape: const CircleBorder(),
+          padding: const EdgeInsets.all(12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerticalZoomSlider() {
+    return Container(
+      height: 80,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: RotatedBox(
+        quarterTurns: -1,
+        child: Slider(
+          value: _currentZoom,
+          min: _minZoom,
+          max: _maxZoom,
+          divisions: 20,
+          onChanged: _onZoomChanged,
+          activeColor: Colors.white,
+          inactiveColor: Colors.white.withValues(alpha: 0.3),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactShootingInfo(AppLocalizations l10n) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Text(
+            l10n.currentPosition(_session.currentPosition.displayString),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          DetailedSegmentedProgressBar(
+            gridStyle: widget.gridStyle,
+            completedCount: _session.completedCount,
+            currentIndex: _session.currentIndex,
+            width: 100,
+            height: 4,
+            showLabels: false,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${_session.completedCount}/${_session.gridStyle.totalCells}',
+            style: const TextStyle(color: Colors.white70, fontSize: 10),
           ),
         ],
       ),
@@ -599,7 +646,6 @@ class _CameraScreenState extends State<CameraScreen>
       padding: const EdgeInsets.all(16.0),
       child: Row(
         children: [
-          // 戻るボタン
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -607,15 +653,9 @@ class _CameraScreenState extends State<CameraScreen>
               backgroundColor: Colors.black.withValues(alpha: 0.5),
             ),
           ),
-
           const Spacer(),
-
-          // 撮影情報
           _buildShootingInfo(l10n),
-
           const Spacer(),
-
-          // カメラ切り替え
           IconButton(
             onPressed: _switchCamera,
             icon: const Icon(Icons.flip_camera_ios, color: Colors.white),
@@ -646,8 +686,6 @@ class _CameraScreenState extends State<CameraScreen>
             ),
           ),
           const SizedBox(height: 8),
-
-          // セグメント化されたプログレスバー
           DetailedSegmentedProgressBar(
             gridStyle: widget.gridStyle,
             completedCount: _session.completedCount,
@@ -656,7 +694,6 @@ class _CameraScreenState extends State<CameraScreen>
             height: 6,
             showLabels: false,
           ),
-
           const SizedBox(height: 6),
           Text(
             '${_session.completedCount}/${_session.gridStyle.totalCells}',
@@ -673,7 +710,6 @@ class _CameraScreenState extends State<CameraScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // フラッシュ切り替え
           IconButton(
             onPressed: _toggleFlashMode,
             icon: Icon(_getFlashIcon()),
@@ -682,8 +718,6 @@ class _CameraScreenState extends State<CameraScreen>
               backgroundColor: Colors.black.withValues(alpha: 0.5),
             ),
           ),
-
-          // 撮り直しボタン
           if (_session.hasCurrentImage)
             IconButton(
               onPressed: _retakeCurrentPicture,
@@ -694,76 +728,14 @@ class _CameraScreenState extends State<CameraScreen>
             )
           else
             const SizedBox(width: 48),
-
-          // 撮影ボタン
           _buildShutterButton(l10n),
-
-          // ズームスライダー（縦向き）
           if (_maxZoom > _minZoom)
             _buildZoomSlider()
           else
             const SizedBox(width: 48),
-
-          const SizedBox(width: 48), // バランス調整用
+          const SizedBox(width: 48),
         ],
       ),
-    );
-  }
-
-  // 横画面用の縦向きコントロール
-  Widget _buildVerticalControls(AppLocalizations l10n) {
-    return Column(
-      children: [
-        // 戻るボタン
-        IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.black.withValues(alpha: 0.5),
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        // フラッシュ切り替え
-        IconButton(
-          onPressed: _toggleFlashMode,
-          icon: Icon(_getFlashIcon()),
-          color: Colors.white,
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.black.withValues(alpha: 0.5),
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        // カメラ切り替え
-        IconButton(
-          onPressed: _switchCamera,
-          icon: const Icon(Icons.flip_camera_ios, color: Colors.white),
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.black.withValues(alpha: 0.5),
-          ),
-        ),
-
-        // ズームスライダー（横画面では縦向き）
-        if (_maxZoom > _minZoom) ...[
-          const SizedBox(height: 20),
-          Container(
-            height: 120,
-            child: RotatedBox(
-              quarterTurns: -1,
-              child: Slider(
-                value: _currentZoom,
-                min: _minZoom,
-                max: _maxZoom,
-                divisions: 20,
-                onChanged: _onZoomChanged,
-                activeColor: Colors.white,
-                inactiveColor: Colors.white.withValues(alpha: 0.3),
-              ),
-            ),
-          ),
-        ],
-      ],
     );
   }
 

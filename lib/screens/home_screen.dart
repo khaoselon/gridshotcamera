@@ -70,7 +70,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _loadBannerAd() {
-    // 広告は常に表示（広告設定を削除したため）
     AdService.instance.createBannerAd(
       onAdLoaded: (ad) {
         setState(() {
@@ -98,7 +97,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
   }
 
-  /// 撮影開始（権限チェックを削除し直接カメラ画面へ遷移）
   void _startShooting() {
     debugPrint(
       '撮影開始: モード=${_selectedMode.name}, グリッド=${_selectedGridStyle.displayName}',
@@ -165,10 +163,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           child: OrientationBuilder(
             builder: (context, orientation) {
               if (orientation == Orientation.landscape) {
-                // 横画面レイアウト
                 return _buildLandscapeLayout(theme, colorScheme, l10n);
               } else {
-                // 縦画面レイアウト
                 return _buildPortraitLayout(theme, colorScheme, l10n);
               }
             },
@@ -191,31 +187,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ヒーローセクション
                 _buildHeroSection(theme, colorScheme, l10n),
-
                 const SizedBox(height: 32),
-
-                // モード選択セクション
                 _buildModeSelectionSection(theme, l10n),
-
                 const SizedBox(height: 32),
-
-                // グリッドスタイル選択セクション
                 _buildGridSelectionSection(theme, colorScheme, l10n),
-
                 const SizedBox(height: 40),
-
-                // 撮影開始ボタン
                 _buildStartButton(theme, colorScheme, l10n),
-
                 const SizedBox(height: 32),
               ],
             ),
           ),
         ),
-
-        // バナー広告（常に表示）
         if (_isBannerAdReady && _bannerAd != null)
           Container(
             margin: const EdgeInsets.only(bottom: 8),
@@ -241,33 +224,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 左側：ヒーローセクションとモード選択
                 Expanded(
                   flex: 1,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // コンパクトなヒーローセクション
                       _buildCompactHeroSection(theme, colorScheme, l10n),
                       const SizedBox(height: 24),
-                      // モード選択セクション
                       _buildModeSelectionSection(theme, l10n),
                     ],
                   ),
                 ),
-
                 const SizedBox(width: 24),
-
-                // 右側：グリッドスタイル選択と撮影ボタン
                 Expanded(
                   flex: 1,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // グリッドスタイル選択セクション
                       _buildGridSelectionSection(theme, colorScheme, l10n),
                       const SizedBox(height: 24),
-                      // 撮影開始ボタン
                       _buildStartButton(theme, colorScheme, l10n),
                     ],
                   ),
@@ -276,8 +251,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
         ),
-
-        // バナー広告（横画面でも表示）
         if (_isBannerAdReady && _bannerAd != null)
           Container(
             margin: const EdgeInsets.only(bottom: 8),
@@ -351,7 +324,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 8),
           Text(
-            l10n.selectPhotoStyle, // 多言語化対応
+            l10n.selectPhotoStyle,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontSize: 16,
               color: colorScheme.onSurface.withOpacity(0.7),
@@ -446,7 +419,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          l10n.shootingMode, // 多言語化対応
+          l10n.shootingMode,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
             fontSize: 20,
@@ -515,39 +488,66 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 20),
 
-          // 修正：固定サイズのグリッドプレビュー
-          Center(
-            child: Container(
-              width: 160, // 固定幅
-              height: 160, // 固定高さ（正方形に固定）
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    colorScheme.primary.withOpacity(0.05),
-                    colorScheme.secondary.withOpacity(0.02),
+          // プレビューとグリッドスタイル選択を横並びに配置（横画面対応）
+          OrientationBuilder(
+            builder: (context, orientation) {
+              if (orientation == Orientation.landscape) {
+                return Row(
+                  children: [
+                    // プレビュー（固定サイズ）
+                    _buildGridPreview(colorScheme),
+                    const SizedBox(width: 20),
+                    // グリッドスタイル選択
+                    Expanded(
+                      child: _buildGridStyleSelector(l10n, theme, colorScheme),
+                    ),
                   ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: colorScheme.primary.withOpacity(0.2),
-                  width: 1,
-                ),
-              ),
-              child: GridPreviewWidget(
-                gridStyle: _selectedGridStyle,
-                size: 128, // コンテナから余白を引いたサイズ
-                highlightIndex: 0,
-              ),
-            ),
+                );
+              } else {
+                return Column(
+                  children: [
+                    // プレビュー（中央配置）
+                    Center(child: _buildGridPreview(colorScheme)),
+                    const SizedBox(height: 20),
+                    // グリッドスタイル選択
+                    _buildGridStyleSelector(l10n, theme, colorScheme),
+                  ],
+                );
+              }
+            },
           ),
-          const SizedBox(height: 20),
-
-          // グリッドスタイル選択ボタン
-          _buildGridStyleSelector(l10n, theme, colorScheme),
         ],
+      ),
+    );
+  }
+
+  Widget _buildGridPreview(ColorScheme colorScheme) {
+    return Container(
+      width: 160,
+      height: 160, // 最大サイズを固定
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primary.withOpacity(0.05),
+            colorScheme.secondary.withOpacity(0.02),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.primary.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Center(
+        // 中央配置を追加
+        child: GridPreviewWidget(
+          gridStyle: _selectedGridStyle,
+          size: 120, // プレビューサイズを統一
+          highlightIndex: 0,
+        ),
       ),
     );
   }
@@ -561,9 +561,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          l10n.selectedGrid(
-            _getGridStyleLabel(l10n, _selectedGridStyle),
-          ), // 多言語化対応
+          l10n.selectedGrid(_getGridStyleLabel(l10n, _selectedGridStyle)),
           style: theme.textTheme.bodyLarge?.copyWith(
             fontWeight: FontWeight.w600,
             color: colorScheme.primary,
@@ -576,7 +574,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: 2.5,
+            childAspectRatio: 2.0, // 2.5から2.0に変更（統一サイズ）
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
           ),
@@ -591,6 +589,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 onTap: () => _onGridStyleChanged(style),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
+                  // 固定高さを設定
+                  height: 60,
                   decoration: BoxDecoration(
                     gradient: isSelected
                         ? LinearGradient(
@@ -704,16 +704,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  // 修正：正しいグリッドスタイルラベルを返す
   String _getGridStyleLabel(AppLocalizations l10n, GridStyle style) {
     switch (style) {
       case GridStyle.grid2x2:
-        return l10n.grid2x2;
+        return l10n.grid2x2; // "2×2"
       case GridStyle.grid2x3:
-        return l10n.grid2x3;
+        return l10n.grid2x3; // "2×3" （修正：これが正しい）
       case GridStyle.grid3x2:
-        return l10n.grid3x2;
+        return l10n.grid3x2; // "3×2"
       case GridStyle.grid3x3:
-        return l10n.grid3x3;
+        return l10n.grid3x3; // "3×3"
     }
   }
 }

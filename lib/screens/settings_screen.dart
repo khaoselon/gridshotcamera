@@ -132,15 +132,35 @@ class _SettingsScreenState extends State<SettingsScreen>
   ) {
     final sections = _buildAllSections(settings, l10n, theme, colorScheme);
 
-    // セクションを左右に分割
+    // セクションをより均等に左右に分割
     final leftSections = <Widget>[];
     final rightSections = <Widget>[];
 
-    for (int i = 0; i < sections.length; i++) {
-      if (i % 2 == 0) {
-        leftSections.add(sections[i]);
-      } else {
-        rightSections.add(sections[i]);
+    // 言語設定とグリッド設定を左に、画像品質とアプリ情報を右に配置
+    if (sections.length >= 4) {
+      leftSections.addAll([
+        sections[0], // 言語設定
+        const SizedBox(height: 20),
+        sections[1], // グリッド境界線設定（完全なセクション）
+      ]);
+
+      rightSections.addAll([
+        sections[2], // 画像品質設定
+        const SizedBox(height: 20),
+        sections[3], // アプリ情報
+      ]);
+    } else {
+      // セクション数が少ない場合は交互に配置
+      for (int i = 0; i < sections.length; i++) {
+        if (i % 2 == 0) {
+          leftSections.add(sections[i]);
+          if (i + 1 < sections.length)
+            leftSections.add(const SizedBox(height: 20));
+        } else {
+          rightSections.add(sections[i]);
+          if (i + 1 < sections.length)
+            rightSections.add(const SizedBox(height: 20));
+        }
       }
     }
 
@@ -382,72 +402,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                   const Text('🇺🇸'),
                   const SizedBox(width: 8),
                   Text(l10n.english),
-                ],
-              ),
-            ),
-            DropdownMenuItem(
-              value: 'it',
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('🇮🇹'),
-                  const SizedBox(width: 8),
-                  const Text('Italiano'),
-                ],
-              ),
-            ),
-            DropdownMenuItem(
-              value: 'es',
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('🇪🇸'),
-                  const SizedBox(width: 8),
-                  const Text('Español'),
-                ],
-              ),
-            ),
-            DropdownMenuItem(
-              value: 'de',
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('🇩🇪'),
-                  const SizedBox(width: 8),
-                  const Text('Deutsch'),
-                ],
-              ),
-            ),
-            DropdownMenuItem(
-              value: 'ko',
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('🇰🇷'),
-                  const SizedBox(width: 8),
-                  const Text('한국어'),
-                ],
-              ),
-            ),
-            DropdownMenuItem(
-              value: 'pt',
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('🇵🇹'),
-                  const SizedBox(width: 8),
-                  const Text('Português'),
-                ],
-              ),
-            ),
-            DropdownMenuItem(
-              value: 'zh-Hant',
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('🇹🇼'),
-                  const SizedBox(width: 8),
-                  const Text('繁體中文'),
                 ],
               ),
             ),
@@ -871,18 +825,6 @@ class _SettingsScreenState extends State<SettingsScreen>
         return '日本語';
       case 'en':
         return 'English';
-      case 'it':
-        return 'Italiano';
-      case 'es':
-        return 'Español';
-      case 'de':
-        return 'Deutsch';
-      case 'ko':
-        return '한국어';
-      case 'pt':
-        return 'Português';
-      case 'zh-Hant':
-        return '繁體中文';
       default:
         return languageCode;
     }

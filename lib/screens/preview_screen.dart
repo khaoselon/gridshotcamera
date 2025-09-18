@@ -93,10 +93,8 @@ class _PreviewScreenState extends State<PreviewScreen>
           _isCompositing = false;
         });
 
-        // 合成完了のアニメーション
         _scaleController.forward();
 
-        // 一時ファイルのクリーンアップを少し遅らせる
         Future.delayed(const Duration(seconds: 2), () {
           ImageComposerService.instance.cleanupTemporaryFiles(widget.session);
         });
@@ -117,7 +115,6 @@ class _PreviewScreenState extends State<PreviewScreen>
   }
 
   void _loadBannerAd() {
-    // 広告は常に表示（広告設定を削除したため）
     AdService.instance.createBannerAd(
       onAdLoaded: (ad) {
         if (mounted) {
@@ -137,7 +134,6 @@ class _PreviewScreenState extends State<PreviewScreen>
     );
   }
 
-  /// 保存処理（権限チェックを削除）
   Future<void> _saveImage() async {
     if (_compositeImagePath == null || _isSaving) return;
 
@@ -147,12 +143,7 @@ class _PreviewScreenState extends State<PreviewScreen>
 
     try {
       final l10n = AppLocalizations.of(context)!;
-
-      // 画像は既にImageComposerServiceで保存済み（ギャラリー保存も含む）
-      // ここでは成功メッセージの表示のみ
       _showSuccessMessage(l10n.saveSuccess);
-
-      // ハプティックフィードバック
       HapticFeedback.lightImpact();
     } catch (e) {
       final l10n = AppLocalizations.of(context)!;
@@ -197,7 +188,6 @@ class _PreviewScreenState extends State<PreviewScreen>
   }
 
   Future<void> _retakePhoto() async {
-    // 確認ダイアログ
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -218,7 +208,6 @@ class _PreviewScreenState extends State<PreviewScreen>
     );
 
     if (confirmed == true && mounted) {
-      // カメラ画面に戻る
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => CameraScreen(
@@ -311,7 +300,6 @@ class _PreviewScreenState extends State<PreviewScreen>
     return Column(
       children: [
         Expanded(child: _buildContent(context, l10n, theme)),
-        // バナー広告
         if (_isBannerAdReady && _bannerAd != null) _buildBannerAd(),
       ],
     );
@@ -327,12 +315,10 @@ class _PreviewScreenState extends State<PreviewScreen>
         Expanded(
           child: Row(
             children: [
-              // 左側：画像表示
               Expanded(
                 flex: 2,
                 child: _buildImageSection(context, l10n, theme),
               ),
-              // 右側：情報とアクション
               Expanded(
                 flex: 1,
                 child: _buildInfoAndActionsSection(context, l10n, theme),
@@ -340,7 +326,6 @@ class _PreviewScreenState extends State<PreviewScreen>
             ],
           ),
         ),
-        // バナー広告
         if (_isBannerAdReady && _bannerAd != null) _buildBannerAd(),
       ],
     );
@@ -363,7 +348,7 @@ class _PreviewScreenState extends State<PreviewScreen>
       return _buildPreviewView(l10n, theme);
     }
 
-    return Container(); // 不明な状態
+    return Container();
   }
 
   Widget _buildImageSection(
@@ -410,116 +395,222 @@ class _PreviewScreenState extends State<PreviewScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 撮影情報
           _buildImageInfo(l10n, theme),
           const SizedBox(height: 24),
-          // アクションボタン
           _buildActionButtons(l10n),
         ],
       ),
     );
   }
 
+  // 修正：横画面対応のローディング表示
   Widget _buildCompositingView(AppLocalizations l10n) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // アプリロゴまたはアイコン（オプション）
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Theme.of(context).primaryColor,
-                  Theme.of(context).primaryColor.withOpacity(0.7),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Theme.of(context).primaryColor.withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
+    return OrientationBuilder(
+      builder: (context, orientation) {
+        if (orientation == Orientation.landscape) {
+          // 横画面用のレイアウト
+          return Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // 左側：ローディングとロゴ
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Theme.of(context).primaryColor,
+                            Theme.of(context).primaryColor.withOpacity(0.7),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Theme.of(
+                              context,
+                            ).primaryColor.withOpacity(0.3),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.grid_view_rounded,
+                        size: 32,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: 50,
+                      height: 50,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 4,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(width: 40),
+
+                // 右側：テキスト情報
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.compositing,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      l10n.compositingProgress(
+                        widget.session.gridStyle.totalCells,
+                        widget.session.gridStyle.totalCells,
+                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Theme.of(
+                            context,
+                          ).primaryColor.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        _getModeDisplayName(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      l10n.pleaseWait,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    ),
+                  ],
                 ),
               ],
             ),
-            child: const Icon(
-              Icons.grid_view_rounded,
-              size: 40,
-              color: Colors.white,
+          );
+        } else {
+          // 縦画面用のレイアウト（既存のもの）
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Theme.of(context).primaryColor,
+                        Theme.of(context).primaryColor.withOpacity(0.7),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(context).primaryColor.withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.grid_view_rounded,
+                    size: 40,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 40),
+                SizedBox(
+                  width: 60,
+                  height: 60,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 4,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Text(
+                  l10n.compositing,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  l10n.compositingProgress(
+                    widget.session.gridStyle.totalCells,
+                    widget.session.gridStyle.totalCells,
+                  ),
+                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Theme.of(context).primaryColor.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    _getModeDisplayName(),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 40),
+                Text(
+                  l10n.pleaseWait,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                ),
+              ],
             ),
-          ),
-
-          const SizedBox(height: 40),
-
-          // ローディングインジケーター
-          SizedBox(
-            width: 60,
-            height: 60,
-            child: CircularProgressIndicator(
-              strokeWidth: 4,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                Theme.of(context).primaryColor,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 32),
-
-          // メインメッセージ
-          Text(
-            l10n.compositing,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-
-          const SizedBox(height: 12),
-
-          // サブメッセージ
-          Text(
-            l10n.compositingProgress(
-              widget.session.gridStyle.totalCells,
-              widget.session.gridStyle.totalCells,
-            ),
-            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 8),
-
-          // モード表示
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Theme.of(context).primaryColor.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: Text(
-              _getModeDisplayName(),
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).primaryColor,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 40),
-
-          // 進行状況テキスト
-          Text(
-            l10n.pleaseWait,
-            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-          ),
-        ],
-      ),
+          );
+        }
+      },
     );
   }
 
@@ -561,7 +652,6 @@ class _PreviewScreenState extends State<PreviewScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 合成画像の表示
           ScaleTransition(
             scale: _scaleAnimation,
             child: Card(
@@ -572,22 +662,15 @@ class _PreviewScreenState extends State<PreviewScreen>
               ),
             ),
           ),
-
           const SizedBox(height: 24),
-
-          // 撮影情報
           _buildImageInfo(l10n, theme),
-
           const SizedBox(height: 32),
-
-          // アクションボタン
           _buildActionButtons(l10n),
         ],
       ),
     );
   }
 
-  /// 画像表示ウィジェット（アスペクト比適応修正版）
   Widget _buildImageDisplay() {
     return FutureBuilder<Size?>(
       future: _getImageSize(_compositeImagePath!),
@@ -604,34 +687,26 @@ class _PreviewScreenState extends State<PreviewScreen>
         final screenHeight = MediaQuery.of(context).size.height;
         final orientation = MediaQuery.of(context).orientation;
 
-        // 横画面の場合は利用可能な高さを考慮
         final maxHeight = orientation == Orientation.landscape
-            ? screenHeight *
-                  0.8 // 横画面時は80%
-            : screenHeight * 0.7; // 縦画面時は70%
+            ? screenHeight * 0.8
+            : screenHeight * 0.7;
 
         final aspectRatio = imageSize.width / imageSize.height;
 
-        // 表示サイズを計算
         double displayWidth, displayHeight;
 
         if (orientation == Orientation.landscape) {
-          // 横画面では高さ基準で計算
           displayHeight = maxHeight;
           displayWidth = displayHeight * aspectRatio;
 
-          // 画面幅を超える場合は幅基準に変更
           if (displayWidth > screenWidth * 0.6) {
-            // 横画面では60%まで
             displayWidth = screenWidth * 0.6;
             displayHeight = displayWidth / aspectRatio;
           }
         } else {
-          // 縦画面では幅基準で計算
           displayWidth = screenWidth;
           displayHeight = displayWidth / aspectRatio;
 
-          // 高さが最大値を超える場合は調整
           if (displayHeight > maxHeight) {
             displayHeight = maxHeight;
             displayWidth = displayHeight * aspectRatio;
@@ -666,7 +741,6 @@ class _PreviewScreenState extends State<PreviewScreen>
     );
   }
 
-  /// 画像のサイズを取得
   Future<Size?> _getImageSize(String imagePath) async {
     try {
       final file = File(imagePath);
@@ -739,7 +813,6 @@ class _PreviewScreenState extends State<PreviewScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 保存ボタン
         ElevatedButton.icon(
           onPressed: _isSaving ? null : _saveImage,
           icon: _isSaving
@@ -760,10 +833,7 @@ class _PreviewScreenState extends State<PreviewScreen>
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
         ),
-
         const SizedBox(height: 12),
-
-        // 共有ボタン
         OutlinedButton.icon(
           onPressed: _isSharing ? null : _shareImage,
           icon: _isSharing
@@ -781,10 +851,7 @@ class _PreviewScreenState extends State<PreviewScreen>
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
         ),
-
         const SizedBox(height: 12),
-
-        // 撮り直しボタン
         TextButton.icon(
           onPressed: _retakePhoto,
           icon: const Icon(Icons.camera_alt),

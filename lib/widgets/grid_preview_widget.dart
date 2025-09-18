@@ -82,10 +82,22 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
     final borderWidth =
         widget.borderWidth ?? (widget.showBorders ? settings.borderWidth : 0.0);
 
+    // 修正：アスペクト比を考慮したサイズ計算
+    final aspectRatio = widget.gridStyle.columns / widget.gridStyle.rows;
+    double containerWidth = widget.size;
+    double containerHeight = widget.size;
+
+    if (aspectRatio > 1.0) {
+      // 横長の場合（3×2など）
+      containerHeight = widget.size / aspectRatio;
+    } else if (aspectRatio < 1.0) {
+      // 縦長の場合（2×3など）
+      containerWidth = widget.size * aspectRatio;
+    }
+
     return Container(
-      // 固定サイズで表示（アスペクト比に関わらず正方形）
-      width: widget.size,
-      height: widget.size,
+      width: containerWidth,
+      height: containerHeight,
       decoration: BoxDecoration(
         border: Border.all(color: theme.dividerColor, width: 1),
         borderRadius: BorderRadius.circular(8),
@@ -106,8 +118,8 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
               physics: const NeverScrollableScrollPhysics(),
               shrinkWrap: true,
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: widget.gridStyle.columns, // 列数
-                childAspectRatio: 1.0, // セルを正方形に固定
+                crossAxisCount: widget.gridStyle.columns,
+                childAspectRatio: 1.0,
                 crossAxisSpacing: borderWidth,
                 mainAxisSpacing: borderWidth,
               ),
