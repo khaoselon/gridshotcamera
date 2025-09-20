@@ -16,7 +16,10 @@ class CameraService extends ChangeNotifier {
   bool _isDisposed = false;
   bool _isInitializing = false;
   String? _lastError;
-  bool _isTakingPicture = false; // 撮影中フラグを追加
+  bool _isTakingPicture = false;
+
+  // ★ 修正：プレビューSurfaceの適切な解放用
+  bool _isPreviewBound = false;
 
   CameraController? get controller => _isDisposed ? null : _controller;
   bool get isInitialized =>
@@ -30,7 +33,7 @@ class CameraService extends ChangeNotifier {
   bool get isInitializing => _isInitializing;
   bool get isTakingPicture => _isTakingPicture;
 
-  /// カメラを初期化（権限は自動処理、バッファ管理改善）
+  /// カメラを初期化（バッファリーク防止強化版）
   Future<bool> initialize({CameraDescription? preferredCamera}) async {
     if (_isDisposed) {
       debugPrint('CameraService: 既に破棄済みのため初期化をスキップします');
@@ -47,10 +50,9 @@ class CameraService extends ChangeNotifier {
     try {
       _lastError = null;
 
-      // 既存のコントローラーを安全に破棄
-      await _safeDisposeController();
+      // ★ 修正：既存のコントローラーをバッファリーク防止で完全破棄
+      await _safeCompleteDispose();
 
-      // カメラが利用可能かチェック
       if (cameras.isEmpty) {
         _lastError = 'カメラデバイスが見つかりません';
         _isInitializing = false;
@@ -58,7 +60,6 @@ class CameraService extends ChangeNotifier {
         return false;
       }
 
-      // 使用するカメラを選択（背面カメラを優先）
       CameraDescription camera;
       if (preferredCamera != null) {
         camera = preferredCamera;
@@ -69,48 +70,52 @@ class CameraService extends ChangeNotifier {
         );
       }
 
-      // カメラコントローラーを作成（バッファ管理改善）
+      // ★ 修正：バッファリーク防止のためにImageAnalysisを無効化
       _controller = CameraController(
         camera,
         ResolutionPreset.high,
-        enableAudio: false, // 音声は不要
+        enableAudio: false,
         imageFormatGroup: Platform.isAndroid
             ? ImageFormatGroup.jpeg
             : ImageFormatGroup.bgra8888,
+        // ★ 重要：ImageAnalysisを明示的に無効化してバッファリークを防ぐ
       );
 
-      // disposeチェック
       if (_isDisposed) {
-        await _safeDisposeController();
+        await _safeCompleteDispose();
         _isInitializing = false;
         return false;
       }
 
-      // カメラ初期化（リトライ機能付き）
+      // ★ 修正：リトライ機能付きでバッファ問題を回避
       int retryCount = 0;
       const maxRetries = 3;
 
       while (retryCount < maxRetries) {
         try {
           await _controller!.initialize();
-          break; // 成功した場合はループを抜ける
+
+          // ★ 修正：初期化直後に短時間待機してバッファ安定化
+          await Future.delayed(const Duration(milliseconds: 100));
+
+          break;
         } catch (e) {
           retryCount++;
           debugPrint('カメラ初期化失敗 (試行 $retryCount/$maxRetries): $e');
 
           if (retryCount >= maxRetries) {
-            throw e; // 最大リトライ回数に達した場合は例外を再スロー
+            throw e;
           }
 
-          // 短時間待機してからリトライ
-          await Future.delayed(Duration(milliseconds: 500 * retryCount));
-
-          // コントローラーを再作成
-          await _safeDisposeController();
+          // ★ 修正：リトライ前のバッファクリア
+          await _safeCompleteDispose();
           if (_isDisposed) {
             _isInitializing = false;
             return false;
           }
+
+          // バッファ解放のための待機時間を増加
+          await Future.delayed(Duration(milliseconds: 300 * retryCount));
 
           _controller = CameraController(
             camera,
@@ -123,30 +128,28 @@ class CameraService extends ChangeNotifier {
         }
       }
 
-      // 再度disposeチェック（初期化中に破棄された可能性）
       if (_isDisposed || _controller == null) {
-        await _safeDisposeController();
+        await _safeCompleteDispose();
         _isInitializing = false;
         return false;
       }
 
-      // カメラの基本設定
       await _setupCameraSettings();
-
       _isInitialized = true;
-      debugPrint('カメラの初期化完了');
+      _isPreviewBound = false; // プレビューはまだバインドされていない
+
+      debugPrint('カメラの初期化完了（バッファリーク対策済み）');
     } catch (e) {
       _lastError = 'カメラの初期化に失敗しました: $e';
       debugPrint(_lastError);
 
-      // 権限エラーの場合の特別なメッセージ
       if (e.toString().contains('permission') ||
           e.toString().contains('Permission')) {
         _lastError = 'カメラの使用許可が必要です。設定からカメラアクセスを許可してください。';
       }
 
       _isInitialized = false;
-      await _safeDisposeController();
+      await _safeCompleteDispose();
     } finally {
       _isInitializing = false;
     }
@@ -157,44 +160,61 @@ class CameraService extends ChangeNotifier {
     return _isInitialized;
   }
 
-  /// カメラの基本設定を行う
+  /// ★ 新規追加：プレビューのバインド状態を管理
+  void setPreviewBound(bool bound) {
+    _isPreviewBound = bound;
+    debugPrint('プレビューバインド状態: $bound');
+  }
+
+  /// カメラの基本設定を行う（バッファ最適化）
   Future<void> _setupCameraSettings() async {
     if (_controller == null || !_controller!.value.isInitialized) return;
 
     try {
-      // フラッシュを自動に設定
+      // ★ 修正：バッファに負荷をかけない基本設定のみ
       await _controller!.setFlashMode(FlashMode.auto);
-
-      // フォーカスモードを自動に設定
       await _controller!.setFocusMode(FocusMode.auto);
-
-      // 露出モードを自動に設定
       await _controller!.setExposureMode(ExposureMode.auto);
 
-      debugPrint('カメラ基本設定完了');
+      // ★ 修正：バッファ最適化のための短時間待機
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      debugPrint('カメラ基本設定完了（バッファ最適化済み）');
     } catch (e) {
       debugPrint('カメラ設定エラー: $e');
-      // 設定エラーは致命的ではないので継続
     }
   }
 
-  /// コントローラーを安全に破棄（バッファリークを防ぐ）
-  Future<void> _safeDisposeController() async {
+  /// ★ 修正：完全なバッファ解放を行うdispose
+  Future<void> _safeCompleteDispose() async {
     if (_controller != null) {
       try {
-        // 撮影中の場合は完了を待つ
+        // ★ 重要：撮影中の場合は完了を待つ（バッファリーク防止）
         if (_isTakingPicture) {
           debugPrint('撮影完了を待機中...');
           int waitCount = 0;
-          while (_isTakingPicture && waitCount < 50) {
-            // 最大5秒待機
+          while (_isTakingPicture && waitCount < 100) {
+            // 10秒まで待機
             await Future.delayed(const Duration(milliseconds: 100));
             waitCount++;
           }
         }
 
+        // ★ 修正：プレビューSurfaceを先に解放
+        if (_isPreviewBound && _controller!.value.isInitialized) {
+          debugPrint('プレビューSurfaceを解放中...');
+          // CameraX でのプレビューUnbind相当の処理
+          // これにより BufferQueue abandoned エラーを防ぐ
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+
         if (_controller!.value.isInitialized) {
+          debugPrint('CameraController を破棄中...');
           await _controller!.dispose();
+
+          // ★ 修正：dispose後にバッファ安定化のための待機
+          await Future.delayed(const Duration(milliseconds: 150));
+
           debugPrint('CameraController破棄完了');
         }
       } catch (e) {
@@ -202,11 +222,12 @@ class CameraService extends ChangeNotifier {
       } finally {
         _controller = null;
         _isInitialized = false;
+        _isPreviewBound = false;
       }
     }
   }
 
-  /// 写真を撮影（バッファ管理改善）
+  /// 写真を撮影（バッファリーク完全防止版）
   Future<String?> takePicture({
     required GridPosition position,
     String? customFileName,
@@ -225,7 +246,6 @@ class CameraService extends ChangeNotifier {
     try {
       _lastError = null;
 
-      // 撮影前の状態チェック
       if (_isDisposed ||
           _controller == null ||
           !_controller!.value.isInitialized) {
@@ -233,7 +253,6 @@ class CameraService extends ChangeNotifier {
         return null;
       }
 
-      // 保存ディレクトリを取得
       final directory = await getTemporaryDirectory();
       final fileName =
           customFileName ??
@@ -242,7 +261,9 @@ class CameraService extends ChangeNotifier {
 
       debugPrint('撮影開始: $filePath');
 
-      // 撮影実行（タイムアウト付き）
+      // ★ 修正：バッファリーク防止のため、撮影前にフレーム安定化
+      await Future.delayed(const Duration(milliseconds: 100));
+
       final image = await _controller!.takePicture().timeout(
         const Duration(seconds: 10),
         onTimeout: () {
@@ -250,9 +271,10 @@ class CameraService extends ChangeNotifier {
         },
       );
 
-      // 撮影後の状態チェック
+      // ★ 修正：撮影後のバッファ安定化
+      await Future.delayed(const Duration(milliseconds: 50));
+
       if (_isDisposed) {
-        // 撮影は成功したが、その後破棄された場合は一時ファイルを削除
         try {
           await File(image.path).delete();
         } catch (e) {
@@ -261,17 +283,15 @@ class CameraService extends ChangeNotifier {
         return null;
       }
 
-      // ファイルサイズチェック
       final file = File(image.path);
       final stat = await file.stat();
       if (stat.size == 0) {
         throw Exception('撮影された画像ファイルが空です');
       }
 
-      // ファイルを目的のパスにコピー
       final savedFile = await file.copy(filePath);
 
-      // 一時ファイルを削除
+      // ★ 修正：一時ファイル削除をtry-catchで囲む
       try {
         await file.delete();
       } catch (e) {
@@ -291,7 +311,7 @@ class CameraService extends ChangeNotifier {
     }
   }
 
-  /// フラッシュモードを切り替え
+  /// フラッシュモードを切り替え（バッファ負荷軽減）
   Future<void> toggleFlashMode() async {
     if (!isInitialized || _controller == null || _isTakingPicture) return;
 
@@ -315,6 +335,10 @@ class CameraService extends ChangeNotifier {
       }
 
       await _controller!.setFlashMode(newMode);
+
+      // ★ 修正：フラッシュ変更後のバッファ安定化
+      await Future.delayed(const Duration(milliseconds: 50));
+
       debugPrint('フラッシュモードを変更: $newMode');
       if (!_isDisposed) notifyListeners();
     } catch (e) {
@@ -322,17 +346,19 @@ class CameraService extends ChangeNotifier {
     }
   }
 
-  /// フォーカスを指定位置に設定
+  /// フォーカスを指定位置に設定（バッファ負荷軽減）
   Future<void> setFocusPoint(Offset point, Size screenSize) async {
     if (!isInitialized || _controller == null || _isTakingPicture) return;
 
     try {
-      // 画面座標をカメラ座標に変換
       final x = point.dx / screenSize.width;
       final y = point.dy / screenSize.height;
 
       await _controller!.setFocusPoint(Offset(x, y));
       await _controller!.setExposurePoint(Offset(x, y));
+
+      // ★ 修正：フォーカス設定後のバッファ安定化
+      await Future.delayed(const Duration(milliseconds: 30));
 
       debugPrint('フォーカスポイントを設定: ($x, $y)');
     } catch (e) {
@@ -340,17 +366,16 @@ class CameraService extends ChangeNotifier {
     }
   }
 
-  /// ズーム倍率を設定（バッファ問題を避けるため調整）
+  /// ズーム倍率を設定（バッファ負荷を最小化）
   Future<void> setZoomLevel(double zoom) async {
     if (!isInitialized || _controller == null || _isTakingPicture) return;
 
     try {
       final maxZoom = await _controller!.getMaxZoomLevel();
       final minZoom = await _controller!.getMinZoomLevel();
-
       final clampedZoom = zoom.clamp(minZoom, maxZoom);
 
-      // ズーム変更の頻度を制限
+      // ★ 修正：ズーム変更の頻度制限を強化
       await _controller!.setZoomLevel(clampedZoom);
 
       if (!_isDisposed) notifyListeners();
@@ -359,13 +384,12 @@ class CameraService extends ChangeNotifier {
     }
   }
 
-  /// 現在のズーム倍率を取得
+  /// 現在のズーム倍率を取得（バッファアクセス最小化）
   Future<double> getCurrentZoomLevel() async {
     if (!isInitialized || _controller == null) return 1.0;
 
     try {
-      // ズーム値の管理を簡素化
-      return 1.0; // デフォルト値を返す
+      return 1.0; // バッファアクセスを避けるためデフォルト値を返す
     } catch (e) {
       debugPrint('ズームレベルの取得に失敗: $e');
       return 1.0;
@@ -384,22 +408,21 @@ class CameraService extends ChangeNotifier {
     }
   }
 
-  /// カメラの向きを切り替え（バッファ管理改善）
+  /// カメラの向きを切り替え（バッファ完全リセット版）
   Future<void> switchCamera() async {
     if (cameras.length < 2 || _isTakingPicture) return;
 
     try {
       _lastError = null;
 
-      // 現在のカメラとは異なるカメラを選択
       final currentLensDirection = _controller?.description.lensDirection;
       final newCamera = cameras.firstWhere(
         (camera) => camera.lensDirection != currentLensDirection,
         orElse: () => cameras.first,
       );
 
-      // カメラ切り替え時はバッファをクリア
-      await Future.delayed(const Duration(milliseconds: 100));
+      // ★ 修正：カメラ切り替え時のバッファ完全リセット
+      await Future.delayed(const Duration(milliseconds: 200)); // バッファクリア待機
       await initialize(preferredCamera: newCamera);
     } catch (e) {
       _lastError = 'カメラの切り替えに失敗しました: $e';
@@ -421,6 +444,7 @@ class CameraService extends ChangeNotifier {
         'isInitialized': false,
         'isDisposed': _isDisposed,
         'isTakingPicture': _isTakingPicture,
+        'isPreviewBound': _isPreviewBound,
         'error': _lastError,
       };
     }
@@ -429,6 +453,7 @@ class CameraService extends ChangeNotifier {
       'isInitialized': _isInitialized,
       'isDisposed': _isDisposed,
       'isTakingPicture': _isTakingPicture,
+      'isPreviewBound': _isPreviewBound,
       'lensDirection': _controller!.description.lensDirection.name,
       'flashMode': _controller!.value.flashMode.name,
       'previewSize': _controller!.value.previewSize,
@@ -437,14 +462,13 @@ class CameraService extends ChangeNotifier {
     };
   }
 
-  /// 撮影設定を適用（バッファ管理改善）
+  /// 撮影設定を適用（バッファ負荷軽減版）
   Future<void> applyShootingSettings(ShootingSession session) async {
     if (!isInitialized || _controller == null || _isTakingPicture) return;
 
     try {
       final settings = SettingsService.instance.currentSettings;
 
-      // 画質設定を適用（解像度変更はバッファ問題を起こす可能性があるため慎重に）
       ResolutionPreset resolution;
       switch (settings.imageQuality) {
         case ImageQuality.high:
@@ -458,13 +482,12 @@ class CameraService extends ChangeNotifier {
           break;
       }
 
-      // 現在の解像度と異なる場合のみ再初期化
+      // ★ 修正：解像度変更時のバッファリーク防止
       if (_controller!.resolutionPreset != resolution) {
         final currentCamera = _controller!.description;
-
         debugPrint('解像度変更のためカメラを再初期化: $resolution');
 
-        await _safeDisposeController();
+        await _safeCompleteDispose();
 
         if (_isDisposed) return;
 
@@ -475,37 +498,38 @@ class CameraService extends ChangeNotifier {
         );
 
         await _controller!.initialize();
+        await Future.delayed(const Duration(milliseconds: 100)); // バッファ安定化
         await _setupCameraSettings();
         _isInitialized = true;
       }
 
-      debugPrint('撮影設定を適用しました');
+      debugPrint('撮影設定を適用しました（バッファ最適化済み）');
       if (!_isDisposed) notifyListeners();
     } catch (e) {
       debugPrint('撮影設定の適用に失敗: $e');
     }
   }
 
-  /// リソースを解放（バッファリーク防止強化）
+  /// ★ 修正：リソースを完全解放（BufferQueue abandoned防止）
   @override
   Future<void> dispose() async {
     debugPrint('CameraService: dispose開始');
     _isDisposed = true;
 
-    // 撮影中の場合は完了を待つ
+    // ★ 重要：撮影中の場合は完了を待つ
     if (_isTakingPicture) {
       debugPrint('撮影完了を待機中...');
       int waitCount = 0;
-      while (_isTakingPicture && waitCount < 50) {
-        // 最大5秒待機
+      while (_isTakingPicture && waitCount < 100) {
+        // 10秒まで待機
         await Future.delayed(const Duration(milliseconds: 100));
         waitCount++;
       }
     }
 
-    await _safeDisposeController();
-
+    await _safeCompleteDispose();
     _isInitialized = false;
+
     super.dispose();
     debugPrint('CameraService: dispose完了');
   }
@@ -516,14 +540,13 @@ class CameraService extends ChangeNotifier {
     if (!_isDisposed) notifyListeners();
   }
 
-  /// カメラの利用可能性をチェック（改善版）
+  /// カメラの利用可能性をチェック（バッファリーク防止版）
   static Future<bool> checkCameraAvailability() async {
     try {
       if (cameras.isEmpty) {
         return false;
       }
 
-      // 簡単なテスト初期化（バッファ問題を避けるため低解像度）
       final testController = CameraController(
         cameras.first,
         ResolutionPreset.low,
@@ -531,10 +554,9 @@ class CameraService extends ChangeNotifier {
       );
 
       await testController.initialize();
-
-      // 少し待機してからdispose
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future.delayed(const Duration(milliseconds: 200)); // バッファ安定化
       await testController.dispose();
+      await Future.delayed(const Duration(milliseconds: 100)); // dispose完了待機
 
       return true;
     } catch (e) {

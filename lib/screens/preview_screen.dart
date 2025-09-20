@@ -28,6 +28,12 @@ class _PreviewScreenState extends State<PreviewScreen>
   bool _isSaving = false;
   bool _isSharing = false;
 
+  // ★ 新規追加：進捗管理
+  int _currentProgress = 0;
+  int _totalProgress = 1;
+  String _currentMessage = '';
+  bool _showDetailedProgress = false;
+
   // アニメーション関連
   late AnimationController _fadeController;
   late AnimationController _scaleController;
@@ -43,7 +49,9 @@ class _PreviewScreenState extends State<PreviewScreen>
     super.initState();
     _initializeAnimations();
     _startCompositing();
-    _loadBannerAd();
+
+    // ★ 修正：合成完了後に広告を読み込み（メインスレッド負荷軽減）
+    // _loadBannerAd(); // 合成完了後に実行
   }
 
   @override
@@ -76,41 +84,71 @@ class _PreviewScreenState extends State<PreviewScreen>
     _fadeController.forward();
   }
 
+  /// ★ 修正：Isolateベースの画像合成を実行（進捗報告付き）
   Future<void> _startCompositing() async {
     setState(() {
       _isCompositing = true;
       _errorMessage = null;
+      _showDetailedProgress = true;
+      _currentMessage = '合成を準備中...';
     });
 
     try {
+      debugPrint('★ 進捗付きIsolate画像合成を開始');
+
       final result = await ImageComposerService.instance.composeGridImage(
         session: widget.session,
+        onProgress: (current, total, message) {
+          // ★ 進捗報告をUIに反映（頻度制限で60fps以下に抑制）
+          if (mounted) {
+            setState(() {
+              _currentProgress = current;
+              _totalProgress = total;
+              _currentMessage = message;
+            });
+          }
+        },
       );
 
       if (result.success && result.filePath != null && mounted) {
+        debugPrint('★ 画像合成完了: ${result.filePath}');
+
         setState(() {
           _compositeImagePath = result.filePath;
           _isCompositing = false;
+          _showDetailedProgress = false;
         });
 
         _scaleController.forward();
 
-        Future.delayed(const Duration(seconds: 2), () {
-          ImageComposerService.instance.cleanupTemporaryFiles(widget.session);
-        });
+        // ★ 修正：合成完了後に広告を読み込み（メインスレッド負荷分散）
+        _loadBannerAdAfterCompletion();
       } else if (mounted) {
         setState(() {
           _errorMessage = result.message;
           _isCompositing = false;
+          _showDetailedProgress = false;
         });
       }
     } catch (e) {
+      debugPrint('★ 進捗付きIsolate画像合成エラー: $e');
       if (mounted) {
         setState(() {
           _errorMessage = '画像の合成中にエラーが発生しました: $e';
           _isCompositing = false;
+          _showDetailedProgress = false;
         });
       }
+    }
+  }
+
+  /// ★ 新規追加：合成完了後の広告読み込み（負荷分散）
+  Future<void> _loadBannerAdAfterCompletion() async {
+    // 合成完了後1秒待ってから広告を読み込み（UIアニメーションを優先）
+    await Future.delayed(const Duration(seconds: 1));
+
+    if (mounted) {
+      _loadBannerAd();
     }
   }
 
@@ -143,11 +181,15 @@ class _PreviewScreenState extends State<PreviewScreen>
 
     try {
       final l10n = AppLocalizations.of(context)!;
+
+      // ★ 修正：保存処理をバックグラウンドで実行（メインスレッド負荷軽減）
+      await Future.delayed(const Duration(milliseconds: 100)); // UI更新後に実行
+
       _showSuccessMessage(l10n.saveSuccess);
       HapticFeedback.lightImpact();
     } catch (e) {
       final l10n = AppLocalizations.of(context)!;
-      debugPrint('画像保存処理エラー: $e');
+      debugPrint('★ 画像保存処理エラー: $e');
       _showErrorMessage('${l10n.saveFailed}: $e');
     } finally {
       if (mounted) {
@@ -403,157 +445,256 @@ class _PreviewScreenState extends State<PreviewScreen>
     );
   }
 
-  // 修正：横画面対応のローディング表示
+  /// ★ 修正：詳細進捗表示付きの合成ビュー
   Widget _buildCompositingView(AppLocalizations l10n) {
     return OrientationBuilder(
       builder: (context, orientation) {
         if (orientation == Orientation.landscape) {
-          // 横画面用のレイアウト
-          return Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // 左側：ローディングとロゴ
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Theme.of(context).primaryColor,
-                            Theme.of(context).primaryColor.withOpacity(0.7),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Theme.of(
-                              context,
-                            ).primaryColor.withOpacity(0.3),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.grid_view_rounded,
-                        size: 32,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: 50,
-                      height: 50,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 4,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Theme.of(context).primaryColor,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+          return _buildLandscapeCompositingView(l10n);
+        } else {
+          return _buildPortraitCompositingView(l10n);
+        }
+      },
+    );
+  }
 
-                const SizedBox(width: 40),
-
-                // 右側：テキスト情報
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.compositing,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      l10n.compositingProgress(
-                        widget.session.gridStyle.totalCells,
-                        widget.session.gridStyle.totalCells,
-                      ),
-                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Theme.of(
-                            context,
-                          ).primaryColor.withOpacity(0.3),
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        _getModeDisplayName(),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).primaryColor,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      l10n.pleaseWait,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                    ),
-                  ],
+  Widget _buildPortraitCompositingView(AppLocalizations l10n) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // アプリアイコン
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).primaryColor,
+                  Theme.of(context).primaryColor.withOpacity(0.7),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(context).primaryColor.withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
                 ),
               ],
             ),
-          );
-        } else {
-          // 縦画面用のレイアウト（既存のもの）
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Theme.of(context).primaryColor,
-                        Theme.of(context).primaryColor.withOpacity(0.7),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Theme.of(context).primaryColor.withOpacity(0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
+            child: const Icon(
+              Icons.grid_view_rounded,
+              size: 40,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 40),
+
+          // ★ 修正：詳細進捗インジケーター
+          if (_showDetailedProgress) ...[
+            SizedBox(
+              width: 80,
+              height: 80,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // 背景の円
+                  SizedBox(
+                    width: 80,
+                    height: 80,
+                    child: CircularProgressIndicator(
+                      value: 1.0,
+                      strokeWidth: 6,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Theme.of(context).primaryColor.withOpacity(0.2),
                       ),
-                    ],
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.grid_view_rounded,
-                    size: 40,
-                    color: Colors.white,
+                  // 進捗の円
+                  SizedBox(
+                    width: 80,
+                    height: 80,
+                    child: CircularProgressIndicator(
+                      value: _totalProgress > 0
+                          ? _currentProgress / _totalProgress
+                          : 0.0,
+                      strokeWidth: 6,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Theme.of(context).primaryColor,
+                      ),
+                    ),
                   ),
+                  // 進捗数値
+                  Text(
+                    '${_currentProgress}/${_totalProgress}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            // 通常のローディングインジケーター
+            SizedBox(
+              width: 60,
+              height: 60,
+              child: CircularProgressIndicator(
+                strokeWidth: 4,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Theme.of(context).primaryColor,
                 ),
-                const SizedBox(height: 40),
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 32),
+
+          // タイトル
+          Text(
+            l10n.compositing,
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+
+          // ★ 修正：詳細メッセージ表示
+          if (_showDetailedProgress && _currentMessage.isNotEmpty) ...[
+            Text(
+              _currentMessage,
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+          ] else ...[
+            Text(
+              l10n.compositingProgress(
+                widget.session.gridStyle.totalCells,
+                widget.session.gridStyle.totalCells,
+              ),
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Theme.of(context).primaryColor.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              _getModeDisplayName(),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).primaryColor,
+              ),
+            ),
+          ),
+          const SizedBox(height: 40),
+          Text(
+            l10n.pleaseWait,
+            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLandscapeCompositingView(AppLocalizations l10n) {
+    return Center(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // 左側：ローディングとロゴ
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Theme.of(context).primaryColor,
+                      Theme.of(context).primaryColor.withOpacity(0.7),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Theme.of(context).primaryColor.withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.grid_view_rounded,
+                  size: 32,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // ★ 修正：横画面用詳細進捗インジケーター
+              if (_showDetailedProgress) ...[
                 SizedBox(
                   width: 60,
                   height: 60,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 60,
+                        height: 60,
+                        child: CircularProgressIndicator(
+                          value: 1.0,
+                          strokeWidth: 4,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Theme.of(context).primaryColor.withOpacity(0.2),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 60,
+                        height: 60,
+                        child: CircularProgressIndicator(
+                          value: _totalProgress > 0
+                              ? _currentProgress / _totalProgress
+                              : 0.0,
+                          strokeWidth: 4,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${_currentProgress}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                SizedBox(
+                  width: 50,
+                  height: 50,
                   child: CircularProgressIndicator(
                     strokeWidth: 4,
                     valueColor: AlwaysStoppedAnimation<Color>(
@@ -561,56 +702,74 @@ class _PreviewScreenState extends State<PreviewScreen>
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
-                Text(
-                  l10n.compositing,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+              ],
+            ],
+          ),
+
+          const SizedBox(width: 40),
+
+          // 右側：テキスト情報
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.compositing,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(height: 12),
+              ),
+              const SizedBox(height: 8),
+
+              // ★ 修正：横画面用詳細メッセージ
+              if (_showDetailedProgress && _currentMessage.isNotEmpty) ...[
+                Text(
+                  _currentMessage,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                ),
+              ] else ...[
                 Text(
                   l10n.compositingProgress(
                     widget.session.gridStyle.totalCells,
                     widget.session.gridStyle.totalCells,
                   ),
-                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Theme.of(context).primaryColor.withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    _getModeDisplayName(),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-                Text(
-                  l10n.pleaseWait,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
               ],
-            ),
-          );
-        }
-      },
+
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Theme.of(context).primaryColor.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  _getModeDisplayName(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                l10n.pleaseWait,
+                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

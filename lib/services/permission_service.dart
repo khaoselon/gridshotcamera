@@ -1,403 +1,622 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'dart:isolate';
 import 'package:flutter/foundation.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/services.dart';
+import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
+import 'package:gal/gal.dart';
+import 'package:gridshot_camera/models/grid_style.dart';
+import 'package:gridshot_camera/models/shooting_mode.dart';
+import 'package:gridshot_camera/models/app_settings.dart';
+import 'package:gridshot_camera/services/settings_service.dart';
 
-class PermissionService {
-  static final PermissionService _instance = PermissionService._internal();
-  static PermissionService get instance => _instance;
+/// ★ 新規追加：Isolateで画像処理を実行するためのメッセージクラス
+class CompositeRequest {
+  final List<String> imagePaths;
+  final GridStyle gridStyle;
+  final ShootingMode mode;
+  final AppSettings settings;
+  final String outputPath;
+  final SendPort responsePort;
 
-  PermissionService._internal();
+  CompositeRequest({
+    required this.imagePaths,
+    required this.gridStyle,
+    required this.mode,
+    required this.settings,
+    required this.outputPath,
+    required this.responsePort,
+  });
+}
 
-  Map<Permission, PermissionStatus> _permissionStatus = {};
+/// ★ 新規追加：進捗報告用のメッセージ
+class CompositeProgress {
+  final int current;
+  final int total;
+  final String message;
 
-  /// カメラ権限をチェック・要求（ネイティブポップアップ優先）
-  Future<PermissionResult> requestCameraPermission() async {
+  CompositeProgress({
+    required this.current,
+    required this.total,
+    required this.message,
+  });
+}
+
+/// ★ 新規追加：結果返却用のメッセージ
+class CompositeResponse {
+  final bool success;
+  final String? filePath;
+  final String message;
+
+  CompositeResponse({
+    required this.success,
+    this.filePath,
+    required this.message,
+  });
+}
+
+class ImageComposerService {
+  static final ImageComposerService _instance =
+      ImageComposerService._internal();
+  static ImageComposerService get instance => _instance;
+
+  ImageComposerService._internal();
+
+  /// ★ 修正：メインスレッドを阻害しないIsolate化された画像合成
+  Future<CompositeResult> composeGridImage({
+    required ShootingSession session,
+    AppSettings? settings,
+    Function(int current, int total, String message)? onProgress,
+  }) async {
     try {
-      debugPrint('カメラ権限を確認中...');
+      final appSettings = settings ?? SettingsService.instance.currentSettings;
+      final images = session.getCompletedImages();
 
-      final status = await Permission.camera.status;
-      _permissionStatus[Permission.camera] = status;
-
-      if (status.isGranted) {
-        debugPrint('カメラ権限は既に許可されています');
-        return PermissionResult(granted: true, message: 'カメラ権限が許可されています');
+      if (images.length != session.gridStyle.totalCells) {
+        throw Exception('撮影が完了していない画像があります');
       }
 
-      // 初回または拒否された場合は直接OS権限ダイアログを表示
-      if (status.isDenied || status.isRestricted) {
-        debugPrint('カメラ権限をOSダイアログで要求します');
+      debugPrint(
+        '★ Isolate画像合成を開始: ${images.length}枚の画像 (${session.mode.name}モード)',
+      );
 
-        // OSネイティブのポップアップを表示
-        final requestStatus = await Permission.camera.request();
-        _permissionStatus[Permission.camera] = requestStatus;
+      // ★ 出力ファイルパスを事前に決定
+      final directory = await getApplicationDocumentsDirectory();
+      final timestamp = DateTime.now();
+      final fileName =
+          'gridshot_${session.mode.name}_${session.gridStyle.displayName}_${timestamp.millisecondsSinceEpoch}.jpg';
+      final outputPath = path.join(directory.path, fileName);
 
-        if (requestStatus.isGranted) {
-          debugPrint('カメラ権限が許可されました');
-          return PermissionResult(granted: true, message: 'カメラ権限が許可されました');
-        } else if (requestStatus.isDenied) {
-          debugPrint('カメラ権限が拒否されました');
-          return PermissionResult(
-            granted: false,
-            message: 'カメラ権限が必要です',
-            shouldShowRationale: true,
-            shouldOpenSettings: false,
-          );
-        } else if (requestStatus.isPermanentlyDenied) {
-          debugPrint('カメラ権限が永続的に拒否されました');
-          return PermissionResult(
-            granted: false,
-            message: 'カメラ権限が拒否されました。設定から許可してください。',
-            shouldShowRationale: false,
-            shouldOpenSettings: true,
-          );
-        }
-      }
+      // ★ Isolateでの処理用にファイルパスのリストを作成
+      final imagePaths = images.map((img) => img.filePath).toList();
 
-      if (status.isPermanentlyDenied) {
-        debugPrint('カメラ権限が永続的に拒否されています');
-        return PermissionResult(
-          granted: false,
-          message: 'カメラ権限が拒否されています。設定から許可してください。',
-          shouldShowRationale: false,
-          shouldOpenSettings: true,
+      // ★ Isolateを使用して画像合成を実行（メインスレッドをブロックしない）
+      final result = await _composeInIsolate(
+        imagePaths: imagePaths,
+        gridStyle: session.gridStyle,
+        mode: session.mode,
+        settings: appSettings,
+        outputPath: outputPath,
+        onProgress: onProgress,
+      );
+
+      if (result.success && result.filePath != null) {
+        debugPrint('★ Isolate画像合成完了: ${result.filePath}');
+
+        // ★ 一時ファイルのクリーンアップ（バックグラウンドで実行）
+        _cleanupTemporaryFilesAsync(session);
+
+        return CompositeResult(
+          success: true,
+          filePath: result.filePath,
+          message: '画像の合成が完了しました',
         );
-      }
-
-      return PermissionResult(
-        granted: false,
-        message: 'カメラ権限の取得に失敗しました',
-        shouldShowRationale: true,
-      );
-    } catch (e) {
-      debugPrint('カメラ権限の確認中にエラー: $e');
-      return PermissionResult(
-        granted: false,
-        message: 'カメラ権限の確認中にエラーが発生しました',
-        shouldShowRationale: true,
-      );
-    }
-  }
-
-  /// ストレージ権限をチェック・要求（ネイティブポップアップ優先）
-  Future<PermissionResult> requestStoragePermission() async {
-    try {
-      debugPrint('ストレージ権限を確認中...');
-
-      Permission permission;
-      if (Platform.isAndroid) {
-        // Android 13 (API 33) 以降では READ_MEDIA_IMAGES を使用
-        final androidInfo = await _getAndroidVersion();
-        if (androidInfo >= 33) {
-          permission = Permission.photos;
-        } else {
-          permission = Permission.storage;
-        }
       } else {
-        // iOSでは写真ライブラリアクセス権限
-        permission = Permission.photos;
+        return CompositeResult(success: false, message: result.message);
       }
+    } catch (e) {
+      debugPrint('★ Isolate画像合成エラー: $e');
+      return CompositeResult(success: false, message: '画像の合成に失敗しました: $e');
+    }
+  }
 
-      final status = await permission.status;
-      _permissionStatus[permission] = status;
+  /// ★ 新規追加：Isolateを使った画像合成の実行
+  Future<CompositeResponse> _composeInIsolate({
+    required List<String> imagePaths,
+    required GridStyle gridStyle,
+    required ShootingMode mode,
+    required AppSettings settings,
+    required String outputPath,
+    Function(int current, int total, String message)? onProgress,
+  }) async {
+    final receivePort = ReceivePort();
+    final completer = Completer<CompositeResponse>();
 
-      if (status.isGranted) {
-        debugPrint('ストレージ権限は既に許可されています');
-        return PermissionResult(granted: true, message: 'ストレージ権限が許可されています');
-      }
+    try {
+      // ★ Isolateを生成して画像処理を実行
+      await Isolate.spawn(
+        _compositeIsolateEntryPoint,
+        CompositeRequest(
+          imagePaths: imagePaths,
+          gridStyle: gridStyle,
+          mode: mode,
+          settings: settings,
+          outputPath: outputPath,
+          responsePort: receivePort.sendPort,
+        ),
+      );
 
-      // 初回または拒否された場合は直接OS権限ダイアログを表示
-      if (status.isDenied || status.isRestricted) {
-        debugPrint('ストレージ権限をOSダイアログで要求します');
-
-        // OSネイティブのポップアップを表示
-        final requestStatus = await permission.request();
-        _permissionStatus[permission] = requestStatus;
-
-        if (requestStatus.isGranted) {
-          debugPrint('ストレージ権限が許可されました');
-          return PermissionResult(granted: true, message: 'ストレージ権限が許可されました');
-        } else if (requestStatus.isDenied) {
-          debugPrint('ストレージ権限が拒否されました');
-          return PermissionResult(
-            granted: false,
-            message: 'ストレージ権限が必要です',
-            shouldShowRationale: true,
-            shouldOpenSettings: false,
-          );
-        } else if (requestStatus.isPermanentlyDenied) {
-          debugPrint('ストレージ権限が永続的に拒否されました');
-          return PermissionResult(
-            granted: false,
-            message: 'ストレージ権限が拒否されました。設定から許可してください。',
-            shouldShowRationale: false,
-            shouldOpenSettings: true,
-          );
+      // ★ Isolateからの進捗とレスポンスを処理
+      receivePort.listen((message) {
+        if (message is CompositeProgress) {
+          // 進捗報告をUIに伝達（頻度制限付き）
+          onProgress?.call(message.current, message.total, message.message);
+        } else if (message is CompositeResponse) {
+          // 最終結果を取得
+          if (!completer.isCompleted) {
+            completer.complete(message);
+          }
+          receivePort.close();
         }
-      }
+      });
 
-      if (status.isPermanentlyDenied) {
-        debugPrint('ストレージ権限が永続的に拒否されています');
-        return PermissionResult(
-          granted: false,
-          message: 'ストレージ権限が拒否されています。設定から許可してください。',
-          shouldShowRationale: false,
-          shouldOpenSettings: true,
+      // ★ タイムアウト付きで結果を待機
+      return await completer.future.timeout(
+        const Duration(minutes: 5), // 最大5分待機
+        onTimeout: () {
+          receivePort.close();
+          return CompositeResponse(success: false, message: '画像合成がタイムアウトしました');
+        },
+      );
+    } catch (e) {
+      receivePort.close();
+      return CompositeResponse(success: false, message: 'Isolate実行エラー: $e');
+    }
+  }
+
+  /// ★ 新規追加：Isolateのエントリーポイント（画像合成を実行）
+  static void _compositeIsolateEntryPoint(CompositeRequest request) async {
+    try {
+      debugPrint('★ Isolate内での画像合成開始');
+
+      // 進捗報告：画像読み込み開始
+      request.responsePort.send(
+        CompositeProgress(
+          current: 0,
+          total: request.imagePaths.length,
+          message: '画像を読み込み中...',
+        ),
+      );
+
+      // ★ 各画像をIsolate内で読み込み
+      List<img.Image> loadedImages = [];
+      for (int i = 0; i < request.imagePaths.length; i++) {
+        final imagePath = request.imagePaths[i];
+        final file = File(imagePath);
+
+        if (!await file.exists()) {
+          throw Exception('画像ファイルが見つかりません: $imagePath');
+        }
+
+        final bytes = await file.readAsBytes();
+        final image = img.decodeImage(bytes);
+        if (image == null) {
+          throw Exception('画像のデコードに失敗しました: $imagePath');
+        }
+        loadedImages.add(image);
+
+        // 進捗報告（読み込み進捗）
+        request.responsePort.send(
+          CompositeProgress(
+            current: i + 1,
+            total: request.imagePaths.length,
+            message: '画像 ${i + 1}/${request.imagePaths.length} を読み込み中...',
+          ),
         );
       }
 
-      return PermissionResult(
-        granted: false,
-        message: 'ストレージ権限の取得に失敗しました',
-        shouldShowRationale: true,
+      // 進捗報告：合成開始
+      request.responsePort.send(
+        CompositeProgress(
+          current: request.imagePaths.length,
+          total: request.imagePaths.length + 1,
+          message: '画像を合成中...',
+        ),
       );
-    } catch (e) {
-      debugPrint('ストレージ権限の確認中にエラー: $e');
-      return PermissionResult(
-        granted: false,
-        message: 'ストレージ権限の確認中にエラーが発生しました',
-        shouldShowRationale: true,
-      );
-    }
-  }
 
-  /// マイク権限をチェック・要求（カメラ使用時に必要な場合）
-  Future<PermissionResult> requestMicrophonePermission() async {
-    try {
-      debugPrint('マイク権限を確認中...');
-
-      final status = await Permission.microphone.status;
-      _permissionStatus[Permission.microphone] = status;
-
-      if (status.isGranted) {
-        debugPrint('マイク権限は既に許可されています');
-        return PermissionResult(granted: true, message: 'マイク権限が許可されています');
-      }
-
-      // 初回または拒否された場合は直接OS権限ダイアログを表示
-      if (status.isDenied || status.isRestricted) {
-        debugPrint('マイク権限をOSダイアログで要求します');
-
-        // OSネイティブのポップアップを表示
-        final requestStatus = await Permission.microphone.request();
-        _permissionStatus[Permission.microphone] = requestStatus;
-
-        if (requestStatus.isGranted) {
-          debugPrint('マイク権限が許可されました');
-          return PermissionResult(granted: true, message: 'マイク権限が許可されました');
-        } else {
-          debugPrint('マイク権限が拒否されました');
-          return PermissionResult(
-            granted: false,
-            message: 'マイク権限が必要です',
-            shouldShowRationale: requestStatus.isDenied,
-            shouldOpenSettings: requestStatus.isPermanentlyDenied,
-          );
-        }
-      }
-
-      if (status.isPermanentlyDenied) {
-        debugPrint('マイク権限が永続的に拒否されています');
-        return PermissionResult(
-          granted: false,
-          message: 'マイク権限が拒否されています。設定から許可してください。',
-          shouldShowRationale: false,
-          shouldOpenSettings: true,
+      // ★ モードに応じた合成処理をIsolate内で実行
+      img.Image compositeImage;
+      if (request.mode == ShootingMode.catalog) {
+        compositeImage = _createCatalogCompositeInIsolate(
+          images: loadedImages,
+          gridStyle: request.gridStyle,
+          settings: request.settings,
+        );
+      } else {
+        compositeImage = _createImpossibleCompositeInIsolate(
+          images: loadedImages,
+          gridStyle: request.gridStyle,
+          settings: request.settings,
         );
       }
 
-      return PermissionResult(
-        granted: false,
-        message: 'マイク権限の取得に失敗しました',
-        shouldShowRationale: true,
+      // 進捗報告：保存開始
+      request.responsePort.send(
+        CompositeProgress(
+          current: request.imagePaths.length + 1,
+          total: request.imagePaths.length + 2,
+          message: '画像を保存中...',
+        ),
+      );
+
+      // ★ 合成画像をIsolate内で保存
+      await _saveCompositeImageInIsolate(
+        compositeImage,
+        request.outputPath,
+        request.settings,
+      );
+
+      debugPrint('★ Isolate内での画像合成完了: ${request.outputPath}');
+
+      // ★ 成功結果をメインIsolateに送信
+      request.responsePort.send(
+        CompositeResponse(
+          success: true,
+          filePath: request.outputPath,
+          message: '画像の合成が完了しました',
+        ),
       );
     } catch (e) {
-      debugPrint('マイク権限の確認中にエラー: $e');
-      return PermissionResult(
-        granted: false,
-        message: 'マイク権限の確認中にエラーが発生しました',
-        shouldShowRationale: true,
+      debugPrint('★ Isolate内画像合成エラー: $e');
+      request.responsePort.send(
+        CompositeResponse(success: false, message: 'Isolate内エラー: $e'),
       );
     }
   }
 
-  /// アプリに必要な全ての権限を一括要求
-  Future<AllPermissionsResult> requestAllPermissions() async {
-    debugPrint('全ての必要な権限を確認中...');
-
-    final results = <String, PermissionResult>{};
-    bool allGranted = true;
-
-    // カメラ権限（必須）
-    final cameraResult = await requestCameraPermission();
-    results['camera'] = cameraResult;
-    if (!cameraResult.granted) allGranted = false;
-
-    // ストレージ権限（必須）
-    final storageResult = await requestStoragePermission();
-    results['storage'] = storageResult;
-    if (!storageResult.granted) allGranted = false;
-
-    // マイク権限（iOSでは推奨、Androidでは必要に応じて）
-    if (Platform.isIOS) {
-      final micResult = await requestMicrophonePermission();
-      results['microphone'] = micResult;
-      // マイク権限は必須ではないので、allGrantedには影響させない
+  /// ★ 修正：Isolate内でのカタログモード合成処理
+  static img.Image _createCatalogCompositeInIsolate({
+    required List<img.Image> images,
+    required GridStyle gridStyle,
+    required AppSettings settings,
+  }) {
+    if (images.isEmpty) {
+      throw Exception('合成する画像がありません');
     }
 
-    return AllPermissionsResult(allGranted: allGranted, results: results);
-  }
+    final referenceImage = images.first;
+    final originalWidth = referenceImage.width;
+    final originalHeight = referenceImage.height;
 
-  /// 単純なカメラ権限確認（OSネイティブポップアップのみ）
-  Future<bool> checkAndRequestCameraPermissionSimple() async {
-    try {
-      // まず現在のステータスを確認
-      final status = await Permission.camera.status;
+    final borderWidth = settings.showGridBorder
+        ? settings.borderWidth.toInt()
+        : 0;
 
-      if (status.isGranted) {
-        return true;
-      }
+    final compositeWidth =
+        (originalWidth * gridStyle.columns) +
+        (borderWidth * (gridStyle.columns - 1));
+    final compositeHeight =
+        (originalHeight * gridStyle.rows) +
+        (borderWidth * (gridStyle.rows - 1));
 
-      if (status.isPermanentlyDenied) {
-        // 永続的に拒否されている場合は false を返す
-        return false;
-      }
+    debugPrint(
+      '★ Isolateカタログ合成: 元画像サイズ=${originalWidth}x${originalHeight}, 合成サイズ=${compositeWidth}x${compositeHeight}',
+    );
 
-      // 権限要求（OSネイティブポップアップ）
-      final result = await Permission.camera.request();
-      return result.isGranted;
-    } catch (e) {
-      debugPrint('カメラ権限確認エラー: $e');
-      return false;
+    final composite = img.Image(
+      width: compositeWidth,
+      height: compositeHeight,
+      format: img.Format.uint8,
+      numChannels: 3,
+    );
+
+    if (settings.showGridBorder && borderWidth > 0) {
+      final borderColor = _convertFlutterColorToImageColorInIsolate(
+        settings.borderColor,
+      );
+      img.fill(composite, color: borderColor);
+    } else {
+      img.fill(composite, color: img.ColorRgb8(248, 248, 248));
     }
+
+    for (int i = 0; i < images.length && i < gridStyle.totalCells; i++) {
+      final position = gridStyle.getPosition(i);
+      final cellX =
+          (position.col * originalWidth) + (position.col * borderWidth);
+      final cellY =
+          (position.row * originalHeight) + (position.row * borderWidth);
+
+      img.Image processedImage;
+      if (images[i].width != originalWidth ||
+          images[i].height != originalHeight) {
+        processedImage = img.copyResize(
+          images[i],
+          width: originalWidth,
+          height: originalHeight,
+          interpolation: img.Interpolation.linear,
+        );
+      } else {
+        processedImage = images[i];
+      }
+
+      img.compositeImage(composite, processedImage, dstX: cellX, dstY: cellY);
+    }
+
+    return composite;
   }
 
-  /// 権限の現在の状態を取得
-  Future<PermissionStatus> getPermissionStatus(Permission permission) async {
-    return await permission.status;
+  /// ★ 修正：Isolate内での不可能合成モード処理
+  static img.Image _createImpossibleCompositeInIsolate({
+    required List<img.Image> images,
+    required GridStyle gridStyle,
+    required AppSettings settings,
+  }) {
+    if (images.isEmpty) {
+      throw Exception('合成する画像がありません');
+    }
+
+    final referenceImage = images.first;
+    final targetWidth = referenceImage.width;
+    final targetHeight = referenceImage.height;
+
+    debugPrint('★ Isolate不可能合成: 基準サイズ=${targetWidth}x${targetHeight}');
+
+    List<img.Image> resizedImages = [];
+    for (final image in images) {
+      final resized = img.copyResize(
+        image,
+        width: targetWidth,
+        height: targetHeight,
+        interpolation: img.Interpolation.linear,
+      );
+      resizedImages.add(resized);
+    }
+
+    final cellWidth = targetWidth ~/ gridStyle.columns;
+    final cellHeight = targetHeight ~/ gridStyle.rows;
+    final borderWidth = settings.showGridBorder
+        ? settings.borderWidth.toInt()
+        : 0;
+
+    final compositeWidth =
+        (cellWidth * gridStyle.columns) +
+        (borderWidth * (gridStyle.columns - 1));
+    final compositeHeight =
+        (cellHeight * gridStyle.rows) + (borderWidth * (gridStyle.rows - 1));
+
+    debugPrint(
+      '★ Isolate不可能合成: セルサイズ=${cellWidth}x${cellHeight}, 合成サイズ=${compositeWidth}x${compositeHeight}',
+    );
+
+    final composite = img.Image(
+      width: compositeWidth,
+      height: compositeHeight,
+      format: img.Format.uint8,
+      numChannels: 3,
+    );
+
+    if (settings.showGridBorder && borderWidth > 0) {
+      final borderColor = _convertFlutterColorToImageColorInIsolate(
+        settings.borderColor,
+      );
+      img.fill(composite, color: borderColor);
+    }
+
+    for (int i = 0; i < resizedImages.length && i < gridStyle.totalCells; i++) {
+      final position = gridStyle.getPosition(i);
+
+      final srcX = position.col * cellWidth;
+      final srcY = position.row * cellHeight;
+
+      final dstX = (position.col * cellWidth) + (position.col * borderWidth);
+      final dstY = (position.row * cellHeight) + (position.row * borderWidth);
+
+      final croppedImage = img.copyCrop(
+        resizedImages[i],
+        x: srcX,
+        y: srcY,
+        width: cellWidth,
+        height: cellHeight,
+      );
+
+      img.compositeImage(composite, croppedImage, dstX: dstX, dstY: dstY);
+    }
+
+    return composite;
   }
 
-  /// 複数の権限の状態を一括取得
-  Future<Map<Permission, PermissionStatus>> getMultiplePermissionStatus(
-    List<Permission> permissions,
+  /// ★ 新規追加：Isolate内でのFlutter Color変換
+  static img.Color _convertFlutterColorToImageColorInIsolate(
+    ui.Color flutterColor,
+  ) {
+    return img.ColorRgb8(
+      flutterColor.red,
+      flutterColor.green,
+      flutterColor.blue,
+    );
+  }
+
+  /// ★ 新規追加：Isolate内での画像保存処理
+  static Future<void> _saveCompositeImageInIsolate(
+    img.Image image,
+    String outputPath,
+    AppSettings settings,
   ) async {
-    Map<Permission, PermissionStatus> results = {};
-    for (final permission in permissions) {
-      results[permission] = await permission.status;
-    }
-    return results;
-  }
+    final jpegBytes = img.encodeJpg(
+      image,
+      quality: settings.imageQuality.quality,
+    );
 
-  /// 設定画面を開く
-  Future<bool> openAppSettings() async {
+    final file = File(outputPath);
+    await file.writeAsBytes(jpegBytes);
+
+    // ★ 修正：ギャラリー保存をtry-catchで囲む（権限エラー対策）
     try {
-      return await openAppSettings();
+      debugPrint('★ Isolate内ギャラリーへの保存を開始...');
+      await Gal.putImage(outputPath);
+      debugPrint('★ Isolate内ギャラリーへの保存完了');
     } catch (e) {
-      debugPrint('設定画面を開く際にエラー: $e');
-      return false;
+      debugPrint('★ Isolate内ギャラリー保存エラー: $e');
+      // エラーが発生してもアプリ内のファイルは保存されているので、処理を続行
     }
   }
 
-  /// 権限が永続的に拒否されているかチェック
-  Future<bool> isPermissionPermanentlyDenied(Permission permission) async {
-    final status = await permission.status;
-    return status.isPermanentlyDenied;
+  /// ★ 修正：一時ファイルの非同期クリーンアップ（メインスレッドを阻害しない）
+  Future<void> _cleanupTemporaryFilesAsync(ShootingSession session) async {
+    // バックグラウンドで実行
+    Future.delayed(const Duration(seconds: 2), () async {
+      try {
+        for (final capturedImage in session.getCompletedImages()) {
+          final file = File(capturedImage.filePath);
+          if (await file.exists()) {
+            await file.delete();
+            debugPrint('★ 一時ファイルを削除: ${capturedImage.filePath}');
+          }
+        }
+      } catch (e) {
+        debugPrint('★ 一時ファイル削除エラー: $e');
+      }
+    });
   }
 
-  /// 権限の説明が必要かチェック
-  Future<bool> shouldShowRequestRationale(Permission permission) async {
-    if (Platform.isAndroid) {
-      // Android固有の実装
-      return !(await permission.status).isPermanentlyDenied;
-    }
-    return true;
-  }
-
-  /// Androidのバージョンを取得（権限管理用）
-  Future<int> _getAndroidVersion() async {
-    if (!Platform.isAndroid) return 0;
-
+  /// ★ 既存：画像のメタデータを取得（軽量化）
+  Future<ImageMetadata?> getImageMetadata(String filePath) async {
     try {
-      // Android APIレベルを取得する簡易実装
-      // 実際のプロダクションでは device_info_plus などを使用
-      return 33; // デフォルトで新しいバージョンを想定
+      final file = File(filePath);
+      if (!await file.exists()) {
+        return null;
+      }
+
+      // ★ 修正：メタデータ取得を軽量化（ファイルサイズ情報のみ先に取得）
+      final stat = await file.stat();
+
+      // 画像サイズ情報は必要時のみ取得
+      final bytes = await file.readAsBytes();
+      final image = img.decodeImage(bytes);
+      if (image == null) {
+        return null;
+      }
+
+      return ImageMetadata(
+        width: image.width,
+        height: image.height,
+        fileSize: stat.size,
+        format: path.extension(filePath).toLowerCase(),
+        modificationTime: stat.modified,
+      );
     } catch (e) {
-      debugPrint('Androidバージョン取得エラー: $e');
-      return 33;
+      debugPrint('★ 画像メタデータの取得に失敗: $e');
+      return null;
     }
   }
 
-  /// デバッグ用：全権限の状態を出力
-  Future<void> debugPrintAllPermissions() async {
-    debugPrint('=== 権限状態 ===');
-
-    final permissions = [
-      Permission.camera,
-      Permission.storage,
-      Permission.photos,
-      Permission.microphone,
-    ];
-
-    for (final permission in permissions) {
-      final status = await permission.status;
-      debugPrint('${permission.toString()}: ${status.toString()}');
-    }
-
-    debugPrint('================');
+  /// ★ 既存：一時ファイルを削除（同期版）
+  Future<void> cleanupTemporaryFiles(ShootingSession session) async {
+    await _cleanupTemporaryFilesAsync(session);
   }
 
-  /// 権限状態のキャッシュをクリア
-  void clearPermissionCache() {
-    _permissionStatus.clear();
+  /// ★ 既存：プレビュー用の縮小画像を作成（軽量化）
+  Future<String?> createPreviewImage(
+    String originalPath, {
+    int maxSize = 500,
+  }) async {
+    try {
+      final file = File(originalPath);
+      if (!await file.exists()) {
+        return null;
+      }
+
+      // ★ 修正：プレビュー作成もIsolateで実行することを検討
+      // しかし、プレビューは小さいサイズなので、現在はメインスレッドで実行
+      final bytes = await file.readAsBytes();
+      final image = img.decodeImage(bytes);
+      if (image == null) {
+        return null;
+      }
+
+      final preview = img.copyResize(
+        image,
+        width: image.width > image.height ? maxSize : null,
+        height: image.height > image.width ? maxSize : null,
+        interpolation: img.Interpolation.linear,
+      );
+
+      final directory = await getTemporaryDirectory();
+      final fileName = 'preview_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final previewPath = path.join(directory.path, fileName);
+
+      final previewBytes = img.encodeJpg(preview, quality: 80);
+      final previewFile = File(previewPath);
+      await previewFile.writeAsBytes(previewBytes);
+
+      return previewPath;
+    } catch (e) {
+      debugPrint('★ プレビュー画像作成エラー: $e');
+      return null;
+    }
+  }
+
+  /// サポートされている画像形式かチェック
+  bool isSupportedImageFormat(String filePath) {
+    final extension = path.extension(filePath).toLowerCase();
+    return ['.jpg', '.jpeg', '.png', '.bmp', '.tiff'].contains(extension);
   }
 }
 
-// 権限要求結果クラス
-class PermissionResult {
-  final bool granted;
+// 既存の結果クラス
+class CompositeResult {
+  final bool success;
+  final String? filePath;
   final String message;
-  final bool shouldShowRationale;
-  final bool shouldOpenSettings;
 
-  PermissionResult({
-    required this.granted,
+  CompositeResult({
+    required this.success,
+    this.filePath,
     required this.message,
-    this.shouldShowRationale = false,
-    this.shouldOpenSettings = false,
+  });
+}
+
+// 既存の画像メタデータクラス
+class ImageMetadata {
+  final int width;
+  final int height;
+  final int fileSize;
+  final String format;
+  final DateTime modificationTime;
+
+  ImageMetadata({
+    required this.width,
+    required this.height,
+    required this.fileSize,
+    required this.format,
+    required this.modificationTime,
   });
 
-  @override
-  String toString() {
-    return 'PermissionResult(granted: $granted, message: $message, shouldShowRationale: $shouldShowRationale, shouldOpenSettings: $shouldOpenSettings)';
+  String get fileSizeFormatted {
+    if (fileSize < 1024) {
+      return '${fileSize}B';
+    } else if (fileSize < 1024 * 1024) {
+      return '${(fileSize / 1024).toStringAsFixed(1)}KB';
+    } else {
+      return '${(fileSize / (1024 * 1024)).toStringAsFixed(1)}MB';
+    }
   }
+
+  String get dimensionsFormatted => '${width}x${height}';
 }
 
-// 全権限の要求結果クラス
-class AllPermissionsResult {
-  final bool allGranted;
-  final Map<String, PermissionResult> results;
+// 既存の画像サイズクラス
+class ImageSize {
+  final int width;
+  final int height;
 
-  AllPermissionsResult({required this.allGranted, required this.results});
+  const ImageSize({required this.width, required this.height});
 
-  bool isPermissionGranted(String permissionName) {
-    return results[permissionName]?.granted ?? false;
-  }
-
-  List<String> get deniedPermissions {
-    return results.entries
-        .where((entry) => !entry.value.granted)
-        .map((entry) => entry.key)
-        .toList();
-  }
-
-  List<String> get grantedPermissions {
-    return results.entries
-        .where((entry) => entry.value.granted)
-        .map((entry) => entry.key)
-        .toList();
-  }
-
-  @override
-  String toString() {
-    return 'AllPermissionsResult(allGranted: $allGranted, granted: ${grantedPermissions.join(", ")}, denied: ${deniedPermissions.join(", ")})';
-  }
+  double get aspectRatio => width / height;
+  bool get isSquare => width == height;
+  bool get isLandscape => width > height;
+  bool get isPortrait => height > width;
 }
