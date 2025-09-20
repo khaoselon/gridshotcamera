@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 本番環境では可能な限りHTTPSを使用することを推奨 -->
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Google AdMob関連ドメイン -->
+        <domain includeSubdomains="true">googlesyndication.com</domain>
+        <domain includeSubdomains="true">googleadservices.com</domain>
+        <domain includeSubdomains="true">google.com</domain>
+        <domain includeSubdomains="true">gstatic.com</domain>
+        <domain includeSubdomains="true">admob.com</domain>
+        <domain includeSubdomains="true">app-measurement.com</domain>
+        
+        <!-- 開発・テスト用（本番では削除推奨） -->
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain>
+    </domain-config>
+    
+    <!-- デバッグビルド用設定 -->
+    <debug-overrides>
+        <trust-anchors>
+            <!-- システム証明書を信頼 -->
+            <certificates src="system"/>
+            <!-- ユーザー追加証明書も信頼（開発用） -->
+            <certificates src="user"/>
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

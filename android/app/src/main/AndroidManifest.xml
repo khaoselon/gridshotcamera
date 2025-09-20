@@ -18,7 +18,8 @@
     <application
         android:label="gridshot_camera"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:networkSecurityConfig="@xml/network_security_config">
 
         <!-- AdMob App ID（デモID） -->
         <meta-data

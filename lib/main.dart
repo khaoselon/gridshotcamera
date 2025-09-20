@@ -26,8 +26,14 @@ void main() async {
     DeviceOrientation.landscapeRight,
   ]);
 
-  // AdMob初期化
-  await MobileAds.instance.initialize();
+  // AdMob初期化（Flutter側で実行）
+  try {
+    debugPrint('AdMob初期化を開始...');
+    await MobileAds.instance.initialize();
+    debugPrint('AdMob初期化が完了しました');
+  } catch (e) {
+    debugPrint('AdMob初期化エラー: $e');
+  }
 
   // カメラの初期化
   try {
@@ -40,7 +46,7 @@ void main() async {
   // 設定サービスの初期化
   await SettingsService.instance.initialize();
 
-  // AdMobサービスの初期化
+  // AdMobサービスの初期化（Flutter側のサービス）
   AdService.instance.initialize();
 
   runApp(const GridShotCameraApp());
