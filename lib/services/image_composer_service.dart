@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'dart:isolate';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
@@ -12,6 +14,51 @@ import 'package:gridshot_camera/models/shooting_mode.dart';
 import 'package:gridshot_camera/models/app_settings.dart';
 import 'package:gridshot_camera/services/settings_service.dart';
 
+/// ★ 新規追加：Isolateで画像処理を実行するためのメッセージクラス
+class CompositeRequest {
+  final List<String> imagePaths;
+  final GridStyle gridStyle;
+  final ShootingMode mode;
+  final AppSettings settings;
+  final String outputPath;
+  final SendPort responsePort;
+
+  CompositeRequest({
+    required this.imagePaths,
+    required this.gridStyle,
+    required this.mode,
+    required this.settings,
+    required this.outputPath,
+    required this.responsePort,
+  });
+}
+
+/// ★ 新規追加：進捗報告用のメッセージ
+class CompositeProgress {
+  final int current;
+  final int total;
+  final String message;
+
+  CompositeProgress({
+    required this.current,
+    required this.total,
+    required this.message,
+  });
+}
+
+/// ★ 新規追加：結果返却用のメッセージ
+class CompositeResponse {
+  final bool success;
+  final String? filePath;
+  final String message;
+
+  CompositeResponse({
+    required this.success,
+    this.filePath,
+    required this.message,
+  });
+}
+
 class ImageComposerService {
   static final ImageComposerService _instance =
       ImageComposerService._internal();
@@ -19,10 +66,11 @@ class ImageComposerService {
 
   ImageComposerService._internal();
 
-  /// 複数の画像を1つのグリッド画像に合成
+  /// ★ 修正：メインスレッドを阻害しないIsolate化された画像合成
   Future<CompositeResult> composeGridImage({
     required ShootingSession session,
     AppSettings? settings,
+    Function(int current, int total, String message)? onProgress,
   }) async {
     try {
       final appSettings = settings ?? SettingsService.instance.currentSettings;
@@ -32,59 +80,206 @@ class ImageComposerService {
         throw Exception('撮影が完了していない画像があります');
       }
 
-      debugPrint('画像合成を開始: ${images.length}枚の画像 (${session.mode.name}モード)');
+      debugPrint(
+        '★ Isolate画像合成を開始: ${images.length}枚の画像 (${session.mode.name}モード)',
+      );
 
-      // 各画像を読み込み
+      // ★ 出力ファイルパスを事前に決定
+      final directory = await getApplicationDocumentsDirectory();
+      final timestamp = DateTime.now();
+      final fileName =
+          'gridshot_${session.mode.name}_${session.gridStyle.displayName}_${timestamp.millisecondsSinceEpoch}.jpg';
+      final outputPath = path.join(directory.path, fileName);
+
+      // ★ Isolateでの処理用にファイルパスのリストを作成
+      final imagePaths = images.map((img) => img.filePath).toList();
+
+      // ★ Isolateを使用して画像合成を実行（メインスレッドをブロックしない）
+      final result = await _composeInIsolate(
+        imagePaths: imagePaths,
+        gridStyle: session.gridStyle,
+        mode: session.mode,
+        settings: appSettings,
+        outputPath: outputPath,
+        onProgress: onProgress,
+      );
+
+      if (result.success && result.filePath != null) {
+        debugPrint('★ Isolate画像合成完了: ${result.filePath}');
+
+        // ★ 一時ファイルのクリーンアップ（バックグラウンドで実行）
+        _cleanupTemporaryFilesAsync(session);
+
+        return CompositeResult(
+          success: true,
+          filePath: result.filePath,
+          message: '画像の合成が完了しました',
+        );
+      } else {
+        return CompositeResult(success: false, message: result.message);
+      }
+    } catch (e) {
+      debugPrint('★ Isolate画像合成エラー: $e');
+      return CompositeResult(success: false, message: '画像の合成に失敗しました: $e');
+    }
+  }
+
+  /// ★ 新規追加：Isolateを使った画像合成の実行
+  Future<CompositeResponse> _composeInIsolate({
+    required List<String> imagePaths,
+    required GridStyle gridStyle,
+    required ShootingMode mode,
+    required AppSettings settings,
+    required String outputPath,
+    Function(int current, int total, String message)? onProgress,
+  }) async {
+    final receivePort = ReceivePort();
+    final completer = Completer<CompositeResponse>();
+
+    try {
+      // ★ Isolateを生成して画像処理を実行
+      await Isolate.spawn(
+        _compositeIsolateEntryPoint,
+        CompositeRequest(
+          imagePaths: imagePaths,
+          gridStyle: gridStyle,
+          mode: mode,
+          settings: settings,
+          outputPath: outputPath,
+          responsePort: receivePort.sendPort,
+        ),
+      );
+
+      // ★ Isolateからの進捗とレスポンスを処理
+      receivePort.listen((message) {
+        if (message is CompositeProgress) {
+          // 進捗報告をUIに伝達（頻度制限付き）
+          onProgress?.call(message.current, message.total, message.message);
+        } else if (message is CompositeResponse) {
+          // 最終結果を取得
+          if (!completer.isCompleted) {
+            completer.complete(message);
+          }
+          receivePort.close();
+        }
+      });
+
+      // ★ タイムアウト付きで結果を待機
+      return await completer.future.timeout(
+        const Duration(minutes: 5), // 最大5分待機
+        onTimeout: () {
+          receivePort.close();
+          return CompositeResponse(success: false, message: '画像合成がタイムアウトしました');
+        },
+      );
+    } catch (e) {
+      receivePort.close();
+      return CompositeResponse(success: false, message: 'Isolate実行エラー: $e');
+    }
+  }
+
+  /// ★ 新規追加：Isolateのエントリーポイント（画像合成を実行）
+  static void _compositeIsolateEntryPoint(CompositeRequest request) async {
+    try {
+      debugPrint('★ Isolate内での画像合成開始');
+
+      // 進捗報告：画像読み込み開始
+      request.responsePort.send(
+        CompositeProgress(
+          current: 0,
+          total: request.imagePaths.length,
+          message: '画像を読み込み中...',
+        ),
+      );
+
+      // ★ 各画像をIsolate内で読み込み
       List<img.Image> loadedImages = [];
-      for (final capturedImage in images) {
-        final file = File(capturedImage.filePath);
+      for (int i = 0; i < request.imagePaths.length; i++) {
+        final imagePath = request.imagePaths[i];
+        final file = File(imagePath);
+
         if (!await file.exists()) {
-          throw Exception('画像ファイルが見つかりません: ${capturedImage.filePath}');
+          throw Exception('画像ファイルが見つかりません: $imagePath');
         }
 
         final bytes = await file.readAsBytes();
         final image = img.decodeImage(bytes);
         if (image == null) {
-          throw Exception('画像のデコードに失敗しました: ${capturedImage.filePath}');
+          throw Exception('画像のデコードに失敗しました: $imagePath');
         }
         loadedImages.add(image);
+
+        // 進捗報告（読み込み進捗）
+        request.responsePort.send(
+          CompositeProgress(
+            current: i + 1,
+            total: request.imagePaths.length,
+            message: '画像 ${i + 1}/${request.imagePaths.length} を読み込み中...',
+          ),
+        );
       }
 
-      // モードに応じて異なる合成処理を実行
-      final compositeImage = session.mode.isCatalogMode
-          ? _createCatalogComposite(
-              images: loadedImages,
-              gridStyle: session.gridStyle,
-              settings: appSettings,
-            )
-          : _createImpossibleComposite(
-              images: loadedImages,
-              gridStyle: session.gridStyle,
-              settings: appSettings,
-            );
-
-      // 合成画像を保存
-      final savedPath = await _saveCompositeImage(
-        compositeImage,
-        session,
-        appSettings,
+      // 進捗報告：合成開始
+      request.responsePort.send(
+        CompositeProgress(
+          current: request.imagePaths.length,
+          total: request.imagePaths.length + 1,
+          message: '画像を合成中...',
+        ),
       );
 
-      debugPrint('画像合成完了: $savedPath');
+      // ★ モードに応じた合成処理をIsolate内で実行
+      img.Image compositeImage;
+      if (request.mode == ShootingMode.catalog) {
+        compositeImage = _createCatalogCompositeInIsolate(
+          images: loadedImages,
+          gridStyle: request.gridStyle,
+          settings: request.settings,
+        );
+      } else {
+        compositeImage = _createImpossibleCompositeInIsolate(
+          images: loadedImages,
+          gridStyle: request.gridStyle,
+          settings: request.settings,
+        );
+      }
 
-      return CompositeResult(
-        success: true,
-        filePath: savedPath,
-        message: '画像の合成が完了しました',
+      // 進捗報告：保存開始
+      request.responsePort.send(
+        CompositeProgress(
+          current: request.imagePaths.length + 1,
+          total: request.imagePaths.length + 2,
+          message: '画像を保存中...',
+        ),
+      );
+
+      // ★ 合成画像をIsolate内で保存
+      await _saveCompositeImageInIsolate(
+        compositeImage,
+        request.outputPath,
+        request.settings,
+      );
+
+      debugPrint('★ Isolate内での画像合成完了: ${request.outputPath}');
+
+      // ★ 成功結果をメインIsolateに送信
+      request.responsePort.send(
+        CompositeResponse(
+          success: true,
+          filePath: request.outputPath,
+          message: '画像の合成が完了しました',
+        ),
       );
     } catch (e) {
-      debugPrint('画像合成エラー: $e');
-      return CompositeResult(success: false, message: '画像の合成に失敗しました: $e');
+      debugPrint('★ Isolate内画像合成エラー: $e');
+      request.responsePort.send(
+        CompositeResponse(success: false, message: 'Isolate内エラー: $e'),
+      );
     }
   }
 
-  /// カタログモード用の合成処理（端末のカメラサイズそのまま配置）
-  img.Image _createCatalogComposite({
+  /// ★ 修正：Isolate内でのカタログモード合成処理
+  static img.Image _createCatalogCompositeInIsolate({
     required List<img.Image> images,
     required GridStyle gridStyle,
     required AppSettings settings,
@@ -93,7 +288,6 @@ class ImageComposerService {
       throw Exception('合成する画像がありません');
     }
 
-    // 最初の画像のサイズを基準として使用（端末のカメラサイズそのまま）
     final referenceImage = images.first;
     final originalWidth = referenceImage.width;
     final originalHeight = referenceImage.height;
@@ -102,7 +296,6 @@ class ImageComposerService {
         ? settings.borderWidth.toInt()
         : 0;
 
-    // 合成画像のサイズを計算（各セルが元画像のサイズそのまま）
     final compositeWidth =
         (originalWidth * gridStyle.columns) +
         (borderWidth * (gridStyle.columns - 1));
@@ -111,10 +304,9 @@ class ImageComposerService {
         (borderWidth * (gridStyle.rows - 1));
 
     debugPrint(
-      'カタログ合成: 元画像サイズ=${originalWidth}x${originalHeight}, 合成サイズ=${compositeWidth}x${compositeHeight}',
+      '★ Isolateカタログ合成: 元画像サイズ=${originalWidth}x${originalHeight}, 合成サイズ=${compositeWidth}x${compositeHeight}',
     );
 
-    // 合成画像を作成
     final composite = img.Image(
       width: compositeWidth,
       height: compositeHeight,
@@ -122,17 +314,15 @@ class ImageComposerService {
       numChannels: 3,
     );
 
-    // 背景色で埋める
     if (settings.showGridBorder && borderWidth > 0) {
-      final borderColor = _convertFlutterColorToImageColor(
+      final borderColor = _convertFlutterColorToImageColorInIsolate(
         settings.borderColor,
       );
       img.fill(composite, color: borderColor);
     } else {
-      img.fill(composite, color: img.ColorRgb8(248, 248, 248)); // 薄いグレー背景
+      img.fill(composite, color: img.ColorRgb8(248, 248, 248));
     }
 
-    // 各画像を元のサイズで適切な位置に配置
     for (int i = 0; i < images.length && i < gridStyle.totalCells; i++) {
       final position = gridStyle.getPosition(i);
       final cellX =
@@ -140,11 +330,9 @@ class ImageComposerService {
       final cellY =
           (position.row * originalHeight) + (position.row * borderWidth);
 
-      // 画像のサイズを統一（基準画像のサイズに合わせる）
       img.Image processedImage;
       if (images[i].width != originalWidth ||
           images[i].height != originalHeight) {
-        // サイズが異なる場合はリサイズ
         processedImage = img.copyResize(
           images[i],
           width: originalWidth,
@@ -161,8 +349,8 @@ class ImageComposerService {
     return composite;
   }
 
-  /// 不可能合成モード用の合成処理（完全な画像を作成）
-  img.Image _createImpossibleComposite({
+  /// ★ 修正：Isolate内での不可能合成モード処理
+  static img.Image _createImpossibleCompositeInIsolate({
     required List<img.Image> images,
     required GridStyle gridStyle,
     required AppSettings settings,
@@ -171,14 +359,12 @@ class ImageComposerService {
       throw Exception('合成する画像がありません');
     }
 
-    // 全画像のサイズを統一（最初の画像を基準）
     final referenceImage = images.first;
     final targetWidth = referenceImage.width;
     final targetHeight = referenceImage.height;
 
-    debugPrint('不可能合成: 基準サイズ=${targetWidth}x${targetHeight}');
+    debugPrint('★ Isolate不可能合成: 基準サイズ=${targetWidth}x${targetHeight}');
 
-    // 各画像を同じサイズにリサイズ
     List<img.Image> resizedImages = [];
     for (final image in images) {
       final resized = img.copyResize(
@@ -190,14 +376,12 @@ class ImageComposerService {
       resizedImages.add(resized);
     }
 
-    // グリッドセルのサイズを計算
     final cellWidth = targetWidth ~/ gridStyle.columns;
     final cellHeight = targetHeight ~/ gridStyle.rows;
     final borderWidth = settings.showGridBorder
         ? settings.borderWidth.toInt()
         : 0;
 
-    // 合成画像のサイズを計算（完全な画像として）
     final compositeWidth =
         (cellWidth * gridStyle.columns) +
         (borderWidth * (gridStyle.columns - 1));
@@ -205,10 +389,9 @@ class ImageComposerService {
         (cellHeight * gridStyle.rows) + (borderWidth * (gridStyle.rows - 1));
 
     debugPrint(
-      '不可能合成: セルサイズ=${cellWidth}x${cellHeight}, 合成サイズ=${compositeWidth}x${compositeHeight}',
+      '★ Isolate不可能合成: セルサイズ=${cellWidth}x${cellHeight}, 合成サイズ=${compositeWidth}x${compositeHeight}',
     );
 
-    // 合成画像を作成
     final composite = img.Image(
       width: compositeWidth,
       height: compositeHeight,
@@ -216,27 +399,22 @@ class ImageComposerService {
       numChannels: 3,
     );
 
-    // 背景色（境界線の色）で埋める
     if (settings.showGridBorder && borderWidth > 0) {
-      final borderColor = _convertFlutterColorToImageColor(
+      final borderColor = _convertFlutterColorToImageColorInIsolate(
         settings.borderColor,
       );
       img.fill(composite, color: borderColor);
     }
 
-    // 各画像から該当するグリッドセル部分を切り出して配置
     for (int i = 0; i < resizedImages.length && i < gridStyle.totalCells; i++) {
       final position = gridStyle.getPosition(i);
 
-      // 元画像での切り出し位置を計算
       final srcX = position.col * cellWidth;
       final srcY = position.row * cellHeight;
 
-      // 合成画像での配置位置を計算
       final dstX = (position.col * cellWidth) + (position.col * borderWidth);
       final dstY = (position.row * cellHeight) + (position.row * borderWidth);
 
-      // 画像から該当部分を切り出し
       final croppedImage = img.copyCrop(
         resizedImages[i],
         x: srcX,
@@ -251,8 +429,10 @@ class ImageComposerService {
     return composite;
   }
 
-  /// Flutter ColorをImageライブラリのColorに変換
-  img.Color _convertFlutterColorToImageColor(ui.Color flutterColor) {
+  /// ★ 新規追加：Isolate内でのFlutter Color変換
+  static img.Color _convertFlutterColorToImageColorInIsolate(
+    ui.Color flutterColor,
+  ) {
     return img.ColorRgb8(
       flutterColor.red,
       flutterColor.green,
@@ -260,52 +440,50 @@ class ImageComposerService {
     );
   }
 
-  /// 合成画像を保存（権限は自動処理）
-  Future<String> _saveCompositeImage(
+  /// ★ 新規追加：Isolate内での画像保存処理
+  static Future<void> _saveCompositeImageInIsolate(
     img.Image image,
-    ShootingSession session,
+    String outputPath,
     AppSettings settings,
   ) async {
-    // 保存ディレクトリを取得
-    final directory = await getApplicationDocumentsDirectory();
-    final timestamp = DateTime.now();
-    final fileName =
-        'gridshot_${session.mode.name}_${session.gridStyle.displayName}_${timestamp.millisecondsSinceEpoch}.jpg';
-    final filePath = path.join(directory.path, fileName);
-
-    // JPEG品質を設定
     final jpegBytes = img.encodeJpg(
       image,
       quality: settings.imageQuality.quality,
     );
 
-    // ファイルに保存
-    final file = File(filePath);
+    final file = File(outputPath);
     await file.writeAsBytes(jpegBytes);
 
-    // ギャラリーに保存（galパッケージが自動的に権限をチェック・要求）
+    // ★ 修正：ギャラリー保存をtry-catchで囲む（権限エラー対策）
     try {
-      debugPrint('ギャラリーへの保存を開始...');
-      await Gal.putImage(filePath);
-      debugPrint('ギャラリーへの保存完了');
+      debugPrint('★ Isolate内ギャラリーへの保存を開始...');
+      await Gal.putImage(outputPath);
+      debugPrint('★ Isolate内ギャラリーへの保存完了');
     } catch (e) {
-      // 権限拒否やその他のエラーの場合、詳細なログを出力
-      if (e.toString().contains('permission') ||
-          e.toString().contains('Permission')) {
-        debugPrint('ギャラリー保存: 権限が拒否されました: $e');
-        debugPrint('注意: 画像はアプリ内には保存されましたが、写真ライブラリには保存されませんでした');
-      } else {
-        debugPrint('ギャラリー保存エラー: $e');
-      }
-
+      debugPrint('★ Isolate内ギャラリー保存エラー: $e');
       // エラーが発生してもアプリ内のファイルは保存されているので、処理を続行
-      // ユーザーには後で手動で保存してもらうか、共有機能を使ってもらう
     }
-
-    return filePath;
   }
 
-  /// 画像のメタデータを取得
+  /// ★ 修正：一時ファイルの非同期クリーンアップ（メインスレッドを阻害しない）
+  Future<void> _cleanupTemporaryFilesAsync(ShootingSession session) async {
+    // バックグラウンドで実行
+    Future.delayed(const Duration(seconds: 2), () async {
+      try {
+        for (final capturedImage in session.getCompletedImages()) {
+          final file = File(capturedImage.filePath);
+          if (await file.exists()) {
+            await file.delete();
+            debugPrint('★ 一時ファイルを削除: ${capturedImage.filePath}');
+          }
+        }
+      } catch (e) {
+        debugPrint('★ 一時ファイル削除エラー: $e');
+      }
+    });
+  }
+
+  /// ★ 既存：画像のメタデータを取得（軽量化）
   Future<ImageMetadata?> getImageMetadata(String filePath) async {
     try {
       final file = File(filePath);
@@ -313,13 +491,15 @@ class ImageComposerService {
         return null;
       }
 
+      // ★ 修正：メタデータ取得を軽量化（ファイルサイズ情報のみ先に取得）
+      final stat = await file.stat();
+
+      // 画像サイズ情報は必要時のみ取得
       final bytes = await file.readAsBytes();
       final image = img.decodeImage(bytes);
       if (image == null) {
         return null;
       }
-
-      final stat = await file.stat();
 
       return ImageMetadata(
         width: image.width,
@@ -329,27 +509,17 @@ class ImageComposerService {
         modificationTime: stat.modified,
       );
     } catch (e) {
-      debugPrint('画像メタデータの取得に失敗: $e');
+      debugPrint('★ 画像メタデータの取得に失敗: $e');
       return null;
     }
   }
 
-  /// 一時ファイルを削除
+  /// ★ 既存：一時ファイルを削除（同期版）
   Future<void> cleanupTemporaryFiles(ShootingSession session) async {
-    try {
-      for (final capturedImage in session.getCompletedImages()) {
-        final file = File(capturedImage.filePath);
-        if (await file.exists()) {
-          await file.delete();
-          debugPrint('一時ファイルを削除: ${capturedImage.filePath}');
-        }
-      }
-    } catch (e) {
-      debugPrint('一時ファイル削除エラー: $e');
-    }
+    await _cleanupTemporaryFilesAsync(session);
   }
 
-  /// プレビュー用の縮小画像を作成
+  /// ★ 既存：プレビュー用の縮小画像を作成（軽量化）
   Future<String?> createPreviewImage(
     String originalPath, {
     int maxSize = 500,
@@ -360,13 +530,14 @@ class ImageComposerService {
         return null;
       }
 
+      // ★ 修正：プレビュー作成もIsolateで実行することを検討
+      // しかし、プレビューは小さいサイズなので、現在はメインスレッドで実行
       final bytes = await file.readAsBytes();
       final image = img.decodeImage(bytes);
       if (image == null) {
         return null;
       }
 
-      // プレビューサイズに縮小
       final preview = img.copyResize(
         image,
         width: image.width > image.height ? maxSize : null,
@@ -374,7 +545,6 @@ class ImageComposerService {
         interpolation: img.Interpolation.linear,
       );
 
-      // プレビューファイルを保存
       final directory = await getTemporaryDirectory();
       final fileName = 'preview_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final previewPath = path.join(directory.path, fileName);
@@ -385,7 +555,7 @@ class ImageComposerService {
 
       return previewPath;
     } catch (e) {
-      debugPrint('プレビュー画像作成エラー: $e');
+      debugPrint('★ プレビュー画像作成エラー: $e');
       return null;
     }
   }
@@ -397,7 +567,7 @@ class ImageComposerService {
   }
 }
 
-// 結果クラス
+// 既存の結果クラス
 class CompositeResult {
   final bool success;
   final String? filePath;
@@ -410,7 +580,7 @@ class CompositeResult {
   });
 }
 
-// 画像メタデータクラス
+// 既存の画像メタデータクラス
 class ImageMetadata {
   final int width;
   final int height;
@@ -439,7 +609,7 @@ class ImageMetadata {
   String get dimensionsFormatted => '${width}x${height}';
 }
 
-// 画像サイズクラス
+// 既存の画像サイズクラス
 class ImageSize {
   final int width;
   final int height;

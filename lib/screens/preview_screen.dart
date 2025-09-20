@@ -6,7 +6,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../l10n/app_localizations.dart';
 import 'package:gridshot_camera/models/shooting_mode.dart';
 import 'package:gridshot_camera/models/grid_style.dart';
-import 'package:gridshot_camera/services/image_composer_service.dart';
+import 'package:gridshot_camera/services/image_composer_service.dart'; // ★ 修正：正しいimport
 import 'package:gridshot_camera/services/ad_service.dart';
 import 'package:gridshot_camera/widgets/loading_widget.dart';
 import 'package:gridshot_camera/screens/camera_screen.dart';
@@ -49,9 +49,6 @@ class _PreviewScreenState extends State<PreviewScreen>
     super.initState();
     _initializeAnimations();
     _startCompositing();
-
-    // ★ 修正：合成完了後に広告を読み込み（メインスレッド負荷軽減）
-    // _loadBannerAd(); // 合成完了後に実行
   }
 
   @override
