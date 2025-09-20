@@ -8,7 +8,7 @@ import 'package:gridshot_camera/models/shooting_mode.dart';
 import 'package:gridshot_camera/models/grid_style.dart';
 import 'package:gridshot_camera/services/image_composer_service.dart';
 import 'package:gridshot_camera/services/ad_service.dart';
-import 'package:gridshot_camera/widgets/loading_widget.dart';
+// ★ 修正：unused import を削除
 import 'package:gridshot_camera/screens/camera_screen.dart';
 
 class PreviewScreen extends StatefulWidget {
@@ -323,6 +323,7 @@ class _PreviewScreenState extends State<PreviewScreen>
   void _goHome() {
     _performSafeTransition(() {
       Navigator.of(context).popUntil((route) => route.isFirst);
+      return Future.value(); // ★ 修正：return文を追加してbody might complete normallyエラーを解決
     });
   }
 

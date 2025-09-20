@@ -6,6 +6,7 @@ import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'dart:io';
+import 'dart:async'; // ★ 追加：Timer使用のため
 
 import 'package:gridshot_camera/screens/home_screen.dart';
 import 'package:gridshot_camera/services/settings_service.dart';
@@ -66,7 +67,7 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
   // ★ 修正：ATTタイミング制御用の状態管理
   bool _appFullyLoaded = false;
   bool _userInteractedWithApp = false;
-  Timer? _attDelayTimer;
+  Timer? _attDelayTimer; // ★ 修正：Timer型を明示
 
   @override
   void initState() {
@@ -142,6 +143,7 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
 
       // ★ 段階2：ユーザーのアプリ操作を待機（最大7秒）
       _attDelayTimer = Timer(const Duration(seconds: 7), () {
+        // ★ 修正：Timerを正しく使用
         if (mounted && !_currentSettings.hasRequestedTracking) {
           debugPrint('★ ATT要求タイムアウト - ユーザー操作なしで実行');
           _requestTrackingPermission();
