@@ -7,7 +7,6 @@ plugins {
 android {
     namespace = "com.mkproject.gridshot_camera"
     compileSdk = 36
-    // ndkVersion = "28.0.12433566" // ← C/C++使うときだけ
 
     // ★ Java 17 に統一
     compileOptions {
@@ -21,13 +20,60 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-    } // ← これが抜けてた！
+        
+        // カメラ関連のパフォーマンス改善
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+        }
+        
+        // メモリ効率化
+        multiDexEnabled = true
+    }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            isDebuggable = true
+            
+            // デバッグ時のメモリ設定
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+        
         release {
             // 開発中は debug キーでOK。ストア配布時は正式署名に差し替え
             signingConfig = signingConfigs.getByName("debug")
-            // minifyEnabled = false など必要に応じて
+            isMinifyEnabled = true
+            isShrinkResources = true
+            
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+    
+    // パッケージング設定
+    packagingOptions {
+        pickFirst("**/libc++_shared.so")
+        pickFirst("**/libjsc.so")
+    }
+    
+    // コンパイル設定
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+    }
+    
+    // 署名設定（開発用）
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
         }
     }
 }
@@ -40,4 +86,9 @@ kotlin {
 // Flutter 連携
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // デシュガリング（API 21+のサポート改善）
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }

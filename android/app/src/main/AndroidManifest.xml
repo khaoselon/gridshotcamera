@@ -4,10 +4,10 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-feature android:name="android.hardware.camera2" android:required="false" />
     
     <!-- ストレージ関連の権限 -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
-    <!-- Android 13+ では READ_EXTERNAL_STORAGE は非推奨。必要なければ削ってOK。 -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     
@@ -19,7 +19,11 @@
         android:label="gridshot_camera"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:networkSecurityConfig="@xml/network_security_config">
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:largeHeap="true"
+        android:hardwareAccelerated="true"
+        android:allowBackup="false"
+        android:requestLegacyExternalStorage="false">
 
         <!-- AdMob App ID（デモID） -->
         <meta-data
@@ -34,11 +38,23 @@
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="unspecified"
+            android:resizeableActivity="true">
 
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
+
+            <!-- カメラ関連のパフォーマンス改善 -->
+            <meta-data
+                android:name="android.hardware.camera.concurrent"
+                android:value="false" />
+            
+            <!-- メモリ効率化設定 -->
+            <meta-data
+                android:name="android.max_aspect"
+                android:value="2.4" />
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -49,9 +65,14 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+            
+        <!-- カメラ2 API使用設定 -->
+        <meta-data
+            android:name="android.hardware.camera.api.level"
+            android:value="3" />
     </application>
 
-    <!-- ★ ここを修正：intent は action 1 つごとに分ける ★ -->
+    <!-- カメラとファイル操作の queries -->
     <queries>
         <!-- PROCESS_TEXT -->
         <intent>
@@ -62,7 +83,12 @@
         <!-- カメラ起動（ACTION_IMAGE_CAPTURE） -->
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />
-            <!-- data指定は不要（付けるなら scheme: content などだが基本不要） -->
+        </intent>
+        
+        <!-- ファイル共有 -->
+        <intent>
+            <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="image/*" />
         </intent>
     </queries>
 

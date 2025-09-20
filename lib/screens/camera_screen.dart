@@ -34,6 +34,7 @@ class _CameraScreenState extends State<CameraScreen>
   bool _isTakingPicture = false;
   String? _errorMessage;
   bool _isScreenDisposed = false;
+  Timer? _debounceTimer; // デバウンス用タイマー
 
   // アニメーション関連
   late AnimationController _flashAnimationController;
@@ -54,7 +55,15 @@ class _CameraScreenState extends State<CameraScreen>
 
     _initializeSession();
     _initializeAnimations();
-    _initializeCamera();
+
+    // カメラ初期化を少し遅延させてUIを安定させる
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (!_isScreenDisposed) {
+          _initializeCamera();
+        }
+      });
+    });
   }
 
   @override
@@ -62,10 +71,15 @@ class _CameraScreenState extends State<CameraScreen>
     debugPrint('CameraScreen: dispose開始');
     _isScreenDisposed = true;
 
+    // デバウンスタイマーを停止
+    _debounceTimer?.cancel();
+
     WidgetsBinding.instance.removeObserver(this);
     _flashAnimationController.dispose();
     _progressAnimationController.dispose();
 
+    // カメラサービスのdisposeを安全に実行
+    _cameraService.removeListener(_onCameraServiceChanged);
     _cameraService.dispose();
 
     super.dispose();
@@ -115,20 +129,30 @@ class _CameraScreenState extends State<CameraScreen>
       _cameraService.addListener(_onCameraServiceChanged);
 
       final success = await _cameraService.initialize();
+
       if (success && mounted && !_isScreenDisposed) {
-        _minZoom = 1.0;
-        _maxZoom = await _cameraService.getMaxZoomLevel();
-        _currentZoom = await _cameraService.getCurrentZoomLevel();
+        // ズーム設定の初期化（エラーハンドリング強化）
+        try {
+          _minZoom = 1.0;
+          _maxZoom = await _cameraService.getMaxZoomLevel();
+          _currentZoom = await _cameraService.getCurrentZoomLevel();
+        } catch (e) {
+          debugPrint('ズーム設定初期化エラー: $e');
+          _minZoom = 1.0;
+          _maxZoom = 1.0;
+          _currentZoom = 1.0;
+        }
 
         await _cameraService.applyShootingSettings(_session);
 
-        setState(() {
-          _isInitializing = false;
-        });
+        if (!_isScreenDisposed) {
+          setState(() {
+            _isInitializing = false;
+          });
 
-        _updateProgressAnimation();
-
-        debugPrint('カメラの初期化が完了しました');
+          _updateProgressAnimation();
+          debugPrint('カメラの初期化が完了しました');
+        }
       } else if (mounted && !_isScreenDisposed) {
         setState(() {
           _isInitializing = false;
@@ -154,6 +178,9 @@ class _CameraScreenState extends State<CameraScreen>
         } else {
           _errorMessage = null;
         }
+
+        // 撮影状態の同期
+        _isTakingPicture = _cameraService.isTakingPicture;
       });
     }
   }
@@ -166,14 +193,33 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Future<void> _takePicture() async {
-    if (_isTakingPicture || !_cameraService.isInitialized || _isScreenDisposed)
+    // 連続撮影を防ぐデバウンス処理
+    if (_isTakingPicture ||
+        !_cameraService.isInitialized ||
+        _isScreenDisposed) {
       return;
+    }
+
+    // 前回の撮影から短時間の場合はスキップ
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      _executeTakePicture();
+    });
+  }
+
+  Future<void> _executeTakePicture() async {
+    if (_isTakingPicture ||
+        !_cameraService.isInitialized ||
+        _isScreenDisposed) {
+      return;
+    }
 
     setState(() {
       _isTakingPicture = true;
     });
 
     try {
+      // フラッシュアニメーション
       _flashAnimationController.forward().then((_) {
         if (!_isScreenDisposed) {
           _flashAnimationController.reverse();
@@ -232,7 +278,7 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   void _retakeCurrentPicture() {
-    if (_session.hasCurrentImage && !_isScreenDisposed) {
+    if (_session.hasCurrentImage && !_isScreenDisposed && !_isTakingPicture) {
       setState(() {
         _session.capturedImages[_session.currentIndex] = null;
         _updateProgressAnimation();
@@ -241,7 +287,7 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Future<void> _toggleFlashMode() async {
-    if (_isScreenDisposed) return;
+    if (_isScreenDisposed || _isTakingPicture) return;
 
     await _cameraService.toggleFlashMode();
     if (mounted && !_isScreenDisposed && _cameraService.controller != null) {
@@ -252,22 +298,40 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Future<void> _switchCamera() async {
-    if (_isScreenDisposed) return;
+    if (_isScreenDisposed || _isTakingPicture) return;
+
+    setState(() {
+      _isInitializing = true;
+    });
+
     await _cameraService.switchCamera();
+
+    if (!_isScreenDisposed) {
+      setState(() {
+        _isInitializing = false;
+      });
+    }
   }
 
   void _onZoomChanged(double zoom) {
-    if (_isScreenDisposed) return;
+    if (_isScreenDisposed || _isTakingPicture) return;
 
     final clampedZoom = zoom.clamp(_minZoom, _maxZoom);
-    _cameraService.setZoomLevel(clampedZoom);
+
+    // ズーム変更の頻度を制限（デバウンス）
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 100), () {
+      _cameraService.setZoomLevel(clampedZoom);
+    });
+
     setState(() {
       _currentZoom = clampedZoom;
     });
   }
 
   void _onTapToFocus(TapUpDetails details) {
-    if (!_cameraService.isInitialized || _isScreenDisposed) return;
+    if (!_cameraService.isInitialized || _isScreenDisposed || _isTakingPicture)
+      return;
 
     final renderBox = context.findRenderObject() as RenderBox;
     final tapPosition = details.localPosition;
@@ -306,14 +370,23 @@ class _CameraScreenState extends State<CameraScreen>
     switch (state) {
       case AppLifecycleState.inactive:
         debugPrint('CameraScreen: アプリが非アクティブになりました');
+        // 撮影中の場合は完了を待つ
         break;
       case AppLifecycleState.paused:
         debugPrint('CameraScreen: アプリがバックグラウンドに移りました');
+        // バックグラウンド時はカメラを一時停止
         break;
       case AppLifecycleState.resumed:
         debugPrint('CameraScreen: アプリがフォアグラウンドに戻りました');
-        if (!_cameraService.isInitialized && !_cameraService.isInitializing) {
-          _initializeCamera();
+        // フォアグラウンドに戻った際の処理
+        if (!_cameraService.isInitialized &&
+            !_cameraService.isInitializing &&
+            !_isTakingPicture) {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (!_isScreenDisposed) {
+              _initializeCamera();
+            }
+          });
         }
         break;
       case AppLifecycleState.detached:
@@ -402,7 +475,7 @@ class _CameraScreenState extends State<CameraScreen>
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: _initializeCamera,
+              onPressed: _isTakingPicture ? null : _initializeCamera,
               child: Text(l10n.retry),
             ),
             const SizedBox(height: 12),
@@ -438,7 +511,7 @@ class _CameraScreenState extends State<CameraScreen>
     return GestureDetector(
       onTapUp: _onTapToFocus,
       onScaleUpdate: (details) {
-        if (details.scale != 1.0) {
+        if (details.scale != 1.0 && !_isTakingPicture) {
           final zoom = (_currentZoom * details.scale).clamp(_minZoom, _maxZoom);
           _onZoomChanged(zoom);
         }
@@ -507,54 +580,43 @@ class _CameraScreenState extends State<CameraScreen>
     );
   }
 
-  // 修正：横画面UIを改善
   Widget _buildLandscapeUIControls(AppLocalizations l10n, ThemeData theme) {
     return SafeArea(
       child: Row(
         children: [
-          // 左側コントロール（縦配置）
           SizedBox(
             width: 80,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                // 戻るボタン
                 _buildControlButton(
                   icon: Icons.arrow_back,
                   onPressed: () => Navigator.of(context).pop(),
                 ),
-                // フラッシュ切り替え
                 _buildControlButton(
                   icon: _getFlashIcon(),
-                  onPressed: _toggleFlashMode,
+                  onPressed: _isTakingPicture ? null : _toggleFlashMode,
                 ),
-                // カメラ切り替え
                 _buildControlButton(
                   icon: Icons.flip_camera_ios,
-                  onPressed: _switchCamera,
+                  onPressed: _isTakingPicture ? null : _switchCamera,
                 ),
-                // ズームスライダー（縦向き）
                 if (_maxZoom > _minZoom) _buildVerticalZoomSlider(),
               ],
             ),
           ),
-          // 中央（カメラプレビューエリア）
           const Spacer(),
-          // 右側コントロール
           SizedBox(
             width: 160,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                // 撮影情報（コンパクト版）
                 _buildCompactShootingInfo(l10n),
-                // 撮影ボタン
                 _buildShutterButton(l10n),
-                // 撮り直しボタン
                 if (_session.hasCurrentImage)
                   _buildControlButton(
                     icon: Icons.refresh,
-                    onPressed: _retakeCurrentPicture,
+                    onPressed: _isTakingPicture ? null : _retakeCurrentPicture,
                   )
                 else
                   const SizedBox(height: 48),
@@ -568,7 +630,7 @@ class _CameraScreenState extends State<CameraScreen>
 
   Widget _buildControlButton({
     required IconData icon,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
     Color? backgroundColor,
   }) {
     return Container(
@@ -597,7 +659,7 @@ class _CameraScreenState extends State<CameraScreen>
           min: _minZoom,
           max: _maxZoom,
           divisions: 20,
-          onChanged: _onZoomChanged,
+          onChanged: _isTakingPicture ? null : _onZoomChanged,
           activeColor: Colors.white,
           inactiveColor: Colors.white.withValues(alpha: 0.3),
         ),
@@ -657,7 +719,7 @@ class _CameraScreenState extends State<CameraScreen>
           _buildShootingInfo(l10n),
           const Spacer(),
           IconButton(
-            onPressed: _switchCamera,
+            onPressed: _isTakingPicture ? null : _switchCamera,
             icon: const Icon(Icons.flip_camera_ios, color: Colors.white),
             style: IconButton.styleFrom(
               backgroundColor: Colors.black.withValues(alpha: 0.5),
@@ -711,7 +773,7 @@ class _CameraScreenState extends State<CameraScreen>
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           IconButton(
-            onPressed: _toggleFlashMode,
+            onPressed: _isTakingPicture ? null : _toggleFlashMode,
             icon: Icon(_getFlashIcon()),
             color: Colors.white,
             style: IconButton.styleFrom(
@@ -720,7 +782,7 @@ class _CameraScreenState extends State<CameraScreen>
           ),
           if (_session.hasCurrentImage)
             IconButton(
-              onPressed: _retakeCurrentPicture,
+              onPressed: _isTakingPicture ? null : _retakeCurrentPicture,
               icon: const Icon(Icons.refresh, color: Colors.white),
               style: IconButton.styleFrom(
                 backgroundColor: Colors.black.withValues(alpha: 0.5),
@@ -748,7 +810,7 @@ class _CameraScreenState extends State<CameraScreen>
         height: 80,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.white,
+          color: _isTakingPicture ? Colors.grey : Colors.white,
           border: Border.all(color: Colors.white, width: 4),
         ),
         child: _isTakingPicture
@@ -756,7 +818,11 @@ class _CameraScreenState extends State<CameraScreen>
                 color: Colors.blue,
                 strokeWidth: 3,
               )
-            : Icon(Icons.camera_alt, size: 40, color: Colors.black),
+            : Icon(
+                Icons.camera_alt,
+                size: 40,
+                color: _isTakingPicture ? Colors.grey : Colors.black,
+              ),
       ),
     );
   }
@@ -771,7 +837,7 @@ class _CameraScreenState extends State<CameraScreen>
           min: _minZoom,
           max: _maxZoom,
           divisions: 20,
-          onChanged: _onZoomChanged,
+          onChanged: _isTakingPicture ? null : _onZoomChanged,
           activeColor: Colors.white,
           inactiveColor: Colors.white.withValues(alpha: 0.3),
         ),
