@@ -6,7 +6,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../l10n/app_localizations.dart';
 import 'package:gridshot_camera/models/shooting_mode.dart';
 import 'package:gridshot_camera/models/grid_style.dart';
-import 'package:gridshot_camera/services/image_composer_service.dart'; // ★ 修正：正しいimport
+import 'package:gridshot_camera/services/image_composer_service.dart';
 import 'package:gridshot_camera/services/ad_service.dart';
 import 'package:gridshot_camera/widgets/loading_widget.dart';
 import 'package:gridshot_camera/screens/camera_screen.dart';
@@ -28,7 +28,7 @@ class _PreviewScreenState extends State<PreviewScreen>
   bool _isSaving = false;
   bool _isSharing = false;
 
-  // ★ 新規追加：進捗管理
+  // 進捗管理
   int _currentProgress = 0;
   int _totalProgress = 1;
   String _currentMessage = '';
@@ -40,14 +40,20 @@ class _PreviewScreenState extends State<PreviewScreen>
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
 
-  // 広告関連
+  // ★ 修正：広告関連（タイミング制御付き）
   BannerAd? _bannerAd;
   bool _isBannerAdReady = false;
+  bool _compositionCompleted = false; // 合成完了フラグ
+  bool _screenStabilized = false; // 画面安定化フラグ
 
   @override
   void initState() {
     super.initState();
     _initializeAnimations();
+
+    // ★ 修正：重い処理状態をAdServiceに通知（FrameEvents対策）
+    AdService.instance.setHeavyProcessingActive(true);
+
     _startCompositing();
   }
 
@@ -56,6 +62,10 @@ class _PreviewScreenState extends State<PreviewScreen>
     _fadeController.dispose();
     _scaleController.dispose();
     _bannerAd?.dispose();
+
+    // ★ 修正：重い処理状態を解除
+    AdService.instance.setHeavyProcessingActive(false);
+
     super.dispose();
   }
 
@@ -81,7 +91,7 @@ class _PreviewScreenState extends State<PreviewScreen>
     _fadeController.forward();
   }
 
-  /// ★ 修正：Isolateベースの画像合成を実行（進捗報告付き）
+  /// ★ 修正：重い処理とタイミング制御付きの画像合成
   Future<void> _startCompositing() async {
     setState(() {
       _isCompositing = true;
@@ -91,12 +101,12 @@ class _PreviewScreenState extends State<PreviewScreen>
     });
 
     try {
-      debugPrint('★ 進捗付きIsolate画像合成を開始');
+      debugPrint('★ 進捗付きIsolate画像合成を開始（タイミング制御版）');
 
       final result = await ImageComposerService.instance.composeGridImage(
         session: widget.session,
         onProgress: (current, total, message) {
-          // ★ 進捗報告をUIに反映（頻度制限で60fps以下に抑制）
+          // 進捗報告をUIに反映（頻度制限で60fps以下に抑制）
           if (mounted) {
             setState(() {
               _currentProgress = current;
@@ -108,24 +118,31 @@ class _PreviewScreenState extends State<PreviewScreen>
       );
 
       if (result.success && result.filePath != null && mounted) {
-        debugPrint('★ 画像合成完了: ${result.filePath}');
+        debugPrint('★ 画像合成完了（タイミング制御版）: ${result.filePath}');
 
         setState(() {
           _compositeImagePath = result.filePath;
           _isCompositing = false;
           _showDetailedProgress = false;
+          _compositionCompleted = true; // ★ 合成完了フラグ
         });
 
         _scaleController.forward();
 
-        // ★ 修正：合成完了後に広告を読み込み（メインスレッド負荷分散）
-        _loadBannerAdAfterCompletion();
+        // ★ 修正：重い処理完了をAdServiceに通知
+        AdService.instance.setHeavyProcessingActive(false);
+
+        // ★ 修正：合成完了後の段階的広告読み込み（FrameEvents対策）
+        await _schedulePostCompositionTasks();
       } else if (mounted) {
         setState(() {
           _errorMessage = result.message;
           _isCompositing = false;
           _showDetailedProgress = false;
         });
+
+        // エラー時も重い処理状態を解除
+        AdService.instance.setHeavyProcessingActive(false);
       }
     } catch (e) {
       debugPrint('★ 進捗付きIsolate画像合成エラー: $e');
@@ -136,37 +153,74 @@ class _PreviewScreenState extends State<PreviewScreen>
           _showDetailedProgress = false;
         });
       }
+
+      // エラー時も重い処理状態を解除
+      AdService.instance.setHeavyProcessingActive(false);
     }
   }
 
-  /// ★ 新規追加：合成完了後の広告読み込み（負荷分散）
-  Future<void> _loadBannerAdAfterCompletion() async {
-    // 合成完了後1秒待ってから広告を読み込み（UIアニメーションを優先）
-    await Future.delayed(const Duration(seconds: 1));
+  /// ★ 新規追加：合成完了後の段階的タスク実行（FrameEvents対策）
+  Future<void> _schedulePostCompositionTasks() async {
+    try {
+      // 段階1：画面安定化待機（500ms）
+      debugPrint('★ 画面安定化待機開始...');
+      await Future.delayed(const Duration(milliseconds: 500));
 
-    if (mounted) {
-      _loadBannerAd();
+      if (!mounted) return;
+
+      setState(() {
+        _screenStabilized = true;
+      });
+
+      // 段階2：広告読み込み（さらに1秒後）
+      debugPrint('★ 広告読み込みスケジュール開始...');
+      await Future.delayed(const Duration(seconds: 1));
+
+      if (!mounted) return;
+
+      _loadBannerAdAfterStabilization();
+    } catch (e) {
+      debugPrint('★ 合成後タスクエラー: $e');
     }
   }
 
-  void _loadBannerAd() {
-    AdService.instance.createBannerAd(
-      onAdLoaded: (ad) {
-        if (mounted) {
-          setState(() {
-            _bannerAd = ad as BannerAd;
-            _isBannerAdReady = true;
-          });
-        }
-      },
-      onAdFailedToLoad: (ad, error) {
-        if (mounted) {
-          setState(() {
-            _isBannerAdReady = false;
-          });
-        }
-      },
-    );
+  /// ★ 修正：画面安定化後の広告読み込み（FrameEvents完全対策）
+  Future<void> _loadBannerAdAfterStabilization() async {
+    if (!mounted || !_compositionCompleted || !_screenStabilized) {
+      debugPrint('★ 広告読み込み条件未満のためスキップ');
+      return;
+    }
+
+    try {
+      debugPrint('★ 安定化後広告読み込み開始...');
+
+      // ★ さらに念押しの遅延（PlatformView attachment負荷分散）
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      if (!mounted) return;
+
+      AdService.instance.createBannerAd(
+        onAdLoaded: (ad) {
+          if (mounted) {
+            setState(() {
+              _bannerAd = ad as BannerAd;
+              _isBannerAdReady = true;
+            });
+            debugPrint('★ 安定化後広告読み込み完了');
+          }
+        },
+        onAdFailedToLoad: (ad, error) {
+          if (mounted) {
+            setState(() {
+              _isBannerAdReady = false;
+            });
+            debugPrint('★ 安定化後広告読み込み失敗: $error');
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('★ 安定化後広告読み込みエラー: $e');
+    }
   }
 
   Future<void> _saveImage() async {
@@ -226,6 +280,7 @@ class _PreviewScreenState extends State<PreviewScreen>
     }
   }
 
+  /// ★ 修正：BufferQueue対策付きの撮影画面遷移
   Future<void> _retakePhoto() async {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
@@ -247,19 +302,61 @@ class _PreviewScreenState extends State<PreviewScreen>
     );
 
     if (confirmed == true && mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => CameraScreen(
-            mode: widget.session.mode,
-            gridStyle: widget.session.gridStyle,
+      // ★ 修正：画面遷移前にAdServiceに重い処理を通知
+      AdService.instance.setHeavyProcessingActive(true);
+
+      // ★ 修正：BufferQueue問題回避のための段階的遷移
+      await _performSafeTransition(() {
+        return Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => CameraScreen(
+              mode: widget.session.mode,
+              gridStyle: widget.session.gridStyle,
+            ),
           ),
-        ),
-      );
+        );
+      });
     }
   }
 
+  /// ★ 修正：BufferQueue対策付きのホーム画面遷移
   void _goHome() {
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    _performSafeTransition(() {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    });
+  }
+
+  /// ★ 新規追加：安全な画面遷移（BufferQueue + FrameEvents対策）
+  Future<void> _performSafeTransition(
+    Future<dynamic> Function() transition,
+  ) async {
+    try {
+      // 段階1：現在の広告を安全に解放
+      if (_bannerAd != null) {
+        debugPrint('★ 遷移前：広告を解放中...');
+        _bannerAd!.dispose();
+        _bannerAd = null;
+        _isBannerAdReady = false;
+
+        // 広告解放後の安定化待機
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+
+      // 段階2：リソース安定化待機
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // 段階3：画面遷移実行
+      debugPrint('★ 安全な画面遷移を実行中...');
+      await transition();
+    } catch (e) {
+      debugPrint('★ 安全な画面遷移エラー: $e');
+      // エラーが発生してもとりあえず遷移は試みる
+      try {
+        await transition();
+      } catch (fallbackError) {
+        debugPrint('★ フォールバック遷移もエラー: $fallbackError');
+      }
+    }
   }
 
   void _showSuccessMessage(String message) {
@@ -339,7 +436,9 @@ class _PreviewScreenState extends State<PreviewScreen>
     return Column(
       children: [
         Expanded(child: _buildContent(context, l10n, theme)),
-        if (_isBannerAdReady && _bannerAd != null) _buildBannerAd(),
+        // ★ 修正：安定化完了後にのみ広告表示
+        if (_isBannerAdReady && _bannerAd != null && _screenStabilized)
+          _buildBannerAd(),
       ],
     );
   }
@@ -365,7 +464,9 @@ class _PreviewScreenState extends State<PreviewScreen>
             ],
           ),
         ),
-        if (_isBannerAdReady && _bannerAd != null) _buildBannerAd(),
+        // ★ 修正：横画面でも安定化後に広告表示
+        if (_isBannerAdReady && _bannerAd != null && _screenStabilized)
+          _buildBannerAd(),
       ],
     );
   }
@@ -442,7 +543,7 @@ class _PreviewScreenState extends State<PreviewScreen>
     );
   }
 
-  /// ★ 修正：詳細進捗表示付きの合成ビュー
+  /// ★ 修正：詳細進捗表示付きの合成ビュー（FrameEvents対策）
   Widget _buildCompositingView(AppLocalizations l10n) {
     return OrientationBuilder(
       builder: (context, orientation) {
@@ -490,7 +591,7 @@ class _PreviewScreenState extends State<PreviewScreen>
           ),
           const SizedBox(height: 40),
 
-          // ★ 修正：詳細進捗インジケーター
+          // 詳細進捗インジケーター
           if (_showDetailedProgress) ...[
             SizedBox(
               width: 80,
@@ -559,7 +660,7 @@ class _PreviewScreenState extends State<PreviewScreen>
           ),
           const SizedBox(height: 12),
 
-          // ★ 修正：詳細メッセージ表示
+          // 詳細メッセージ表示
           if (_showDetailedProgress && _currentMessage.isNotEmpty) ...[
             Text(
               _currentMessage,
@@ -645,7 +746,7 @@ class _PreviewScreenState extends State<PreviewScreen>
               ),
               const SizedBox(height: 24),
 
-              // ★ 修正：横画面用詳細進捗インジケーター
+              // 横画面用詳細進捗インジケーター
               if (_showDetailedProgress) ...[
                 SizedBox(
                   width: 60,
@@ -719,7 +820,7 @@ class _PreviewScreenState extends State<PreviewScreen>
               ),
               const SizedBox(height: 8),
 
-              // ★ 修正：横画面用詳細メッセージ
+              // 横画面用詳細メッセージ
               if (_showDetailedProgress && _currentMessage.isNotEmpty) ...[
                 Text(
                   _currentMessage,
@@ -1020,6 +1121,7 @@ class _PreviewScreenState extends State<PreviewScreen>
     );
   }
 
+  /// ★ 修正：安定化後にのみ表示する広告
   Widget _buildBannerAd() {
     return Container(
       alignment: Alignment.center,

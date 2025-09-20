@@ -63,6 +63,11 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
     with WidgetsBindingObserver {
   late AppSettings _currentSettings;
 
+  // ★ 修正：ATTタイミング制御用の状態管理
+  bool _appFullyLoaded = false;
+  bool _userInteractedWithApp = false;
+  Timer? _attDelayTimer;
+
   @override
   void initState() {
     super.initState();
@@ -72,9 +77,9 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
     // 設定変更を監視
     SettingsService.instance.addListener(_onSettingsChanged);
 
-    // アプリ起動後数秒後にトラッキング許可を要求
+    // ★ 修正：アプリの完全読み込み後にATTをスケジュール
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scheduleTrackingPermissionRequest();
+      _scheduleAppTrackingTransparency();
     });
   }
 
@@ -82,6 +87,7 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     SettingsService.instance.removeListener(_onSettingsChanged);
+    _attDelayTimer?.cancel(); // ★ タイマーをキャンセル
     super.dispose();
   }
 
@@ -99,6 +105,12 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
       case AppLifecycleState.resumed:
         // アプリがフォアグラウンドに戻った時の処理
         AdService.instance.resumeAds();
+
+        // ★ ユーザーがアプリに戻ってきた = インタラクションの証拠
+        if (!_userInteractedWithApp) {
+          _userInteractedWithApp = true;
+          debugPrint('★ ユーザーインタラクション検出（フォアグラウンド復帰）');
+        }
         break;
       case AppLifecycleState.paused:
         // アプリがバックグラウンドに移った時の処理
@@ -113,44 +125,92 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
     }
   }
 
-  /// アプリ初回起動時数秒後にトラッキング許可を要求
-  Future<void> _scheduleTrackingPermissionRequest() async {
+  /// ★ 修正：適切なタイミングでのApp Tracking Transparency要求
+  Future<void> _scheduleAppTrackingTransparency() async {
     // iOS でのみ App Tracking Transparency の許可を要求
     if (Platform.isIOS && !_currentSettings.hasRequestedTracking) {
-      debugPrint('3秒後にApp Tracking Transparencyを要求します');
+      debugPrint('★ ATT要求をスケジュール（適切なタイミングで実行）');
 
-      // アプリ起動後3秒待機（UIが完全に表示されてから）
+      // ★ 段階1：アプリ完全読み込み待機（3秒）
       await Future.delayed(const Duration(seconds: 3));
 
       if (!mounted) return;
 
-      await _requestTrackingPermission();
+      setState(() {
+        _appFullyLoaded = true;
+      });
+
+      // ★ 段階2：ユーザーのアプリ操作を待機（最大7秒）
+      _attDelayTimer = Timer(const Duration(seconds: 7), () {
+        if (mounted && !_currentSettings.hasRequestedTracking) {
+          debugPrint('★ ATT要求タイムアウト - ユーザー操作なしで実行');
+          _requestTrackingPermission();
+        }
+      });
+
+      // ★ ユーザーインタラクションを監視
+      _waitForUserInteraction();
+    }
+  }
+
+  /// ★ 新規追加：ユーザーインタラクション監視
+  Future<void> _waitForUserInteraction() async {
+    // ユーザーがアプリを操作するまで待機
+    int checkCount = 0;
+    while (!_userInteractedWithApp && checkCount < 70 && mounted) {
+      // 最大7秒間
+      await Future.delayed(const Duration(milliseconds: 100));
+      checkCount++;
+    }
+
+    if (mounted &&
+        _userInteractedWithApp &&
+        !_currentSettings.hasRequestedTracking) {
+      // ★ ユーザー操作後、さらに2秒待ってからATT要求
+      debugPrint('★ ユーザーインタラクション検出 - 2秒後にATT要求');
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (mounted) {
+        _attDelayTimer?.cancel(); // タイムアウトタイマーをキャンセル
+        _requestTrackingPermission();
+      }
+    }
+  }
+
+  /// ★ 修正：ユーザーインタラクション検出器
+  void _onUserInteraction() {
+    if (!_userInteractedWithApp && _appFullyLoaded) {
+      _userInteractedWithApp = true;
+      debugPrint('★ ユーザーインタラクション検出（タップ・スワイプ等）');
     }
   }
 
   /// App Tracking Transparency の許可要求を実行
   Future<void> _requestTrackingPermission() async {
     try {
-      debugPrint('App Tracking Transparency の状態を確認中...');
+      debugPrint('★ App Tracking Transparency の状態を確認中...');
 
       // 現在の許可状況を確認
       final currentStatus =
           await AppTrackingTransparency.trackingAuthorizationStatus;
-      debugPrint('現在のATT状況: $currentStatus');
+      debugPrint('★ 現在のATT状況: $currentStatus');
 
       // まだ決定されていない場合のみ要求
       if (currentStatus == TrackingStatus.notDetermined) {
-        debugPrint('App Tracking Transparency の許可を要求します');
+        debugPrint('★ App Tracking Transparency の許可を要求します');
+
+        // ★ 修正：FrameEvents対策 - ATT表示前の安定化待機
+        await Future.delayed(const Duration(milliseconds: 200));
 
         // OSネイティブのATTポップアップを表示
         final status =
             await AppTrackingTransparency.requestTrackingAuthorization();
-        debugPrint('ATT要求結果: $status');
+        debugPrint('★ ATT要求結果: $status');
 
         // 許可状況に応じて広告設定を更新
         AdService.instance.updateTrackingStatus(status);
       } else {
-        debugPrint('ATTは既に決定済み: $currentStatus');
+        debugPrint('★ ATTは既に決定済み: $currentStatus');
 
         // 広告設定を更新
         AdService.instance.updateTrackingStatus(currentStatus);
@@ -159,7 +219,7 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
       // 許可要求したことを記録（結果に関わらず）
       await SettingsService.instance.updateTrackingRequested(true);
     } catch (e) {
-      debugPrint('App Tracking Transparency要求エラー: $e');
+      debugPrint('★ App Tracking Transparency要求エラー: $e');
 
       // エラーが発生した場合も記録を更新（無限ループを防ぐ）
       await SettingsService.instance.updateTrackingRequested(true);
@@ -426,7 +486,13 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
       // システムのテーマに従う
       themeMode: ThemeMode.system,
 
-      home: const HomeScreen(),
+      // ★ 修正：ユーザーインタラクション検出付きのホーム画面
+      home: GestureDetector(
+        onTap: _onUserInteraction,
+        onPanUpdate: (_) => _onUserInteraction(),
+        onScaleUpdate: (_) => _onUserInteraction(),
+        child: const HomeScreen(),
+      ),
     );
   }
 }

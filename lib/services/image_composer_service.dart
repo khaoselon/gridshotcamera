@@ -14,7 +14,7 @@ import 'package:gridshot_camera/models/shooting_mode.dart';
 import 'package:gridshot_camera/models/app_settings.dart';
 import 'package:gridshot_camera/services/settings_service.dart';
 
-/// ★ 新規追加：Isolateで画像処理を実行するためのメッセージクラス
+/// ★ 修正：Isolateで画像処理を実行するためのメッセージクラス
 class CompositeRequest {
   final List<String> imagePaths;
   final GridStyle gridStyle;
@@ -33,7 +33,7 @@ class CompositeRequest {
   });
 }
 
-/// ★ 新規追加：進捗報告用のメッセージ
+/// 進捗報告用のメッセージ
 class CompositeProgress {
   final int current;
   final int total;
@@ -46,16 +46,18 @@ class CompositeProgress {
   });
 }
 
-/// ★ 新規追加：結果返却用のメッセージ
+/// ★ 修正：結果返却用のメッセージ（ギャラリー保存状態も含む）
 class CompositeResponse {
   final bool success;
   final String? filePath;
   final String message;
+  final bool needsGallerySave; // ★ 新規追加：メイン側でギャラリー保存が必要か
 
   CompositeResponse({
     required this.success,
     this.filePath,
     required this.message,
+    this.needsGallerySave = false, // ★ デフォルトはfalse
   });
 }
 
@@ -66,7 +68,7 @@ class ImageComposerService {
 
   ImageComposerService._internal();
 
-  /// ★ 修正：メインスレッドを阻害しないIsolate化された画像合成
+  /// ★ 修正：ギャラリー保存をメインIsolateで実行する画像合成
   Future<CompositeResult> composeGridImage({
     required ShootingSession session,
     AppSettings? settings,
@@ -81,20 +83,20 @@ class ImageComposerService {
       }
 
       debugPrint(
-        '★ Isolate画像合成を開始: ${images.length}枚の画像 (${session.mode.name}モード)',
+        '★ Isolate画像合成を開始（ギャラリー保存分離版）: ${images.length}枚の画像 (${session.mode.name}モード)',
       );
 
-      // ★ 出力ファイルパスを事前に決定
+      // 出力ファイルパスを事前に決定
       final directory = await getApplicationDocumentsDirectory();
       final timestamp = DateTime.now();
       final fileName =
           'gridshot_${session.mode.name}_${session.gridStyle.displayName}_${timestamp.millisecondsSinceEpoch}.jpg';
       final outputPath = path.join(directory.path, fileName);
 
-      // ★ Isolateでの処理用にファイルパスのリストを作成
+      // Isolateでの処理用にファイルパスのリストを作成
       final imagePaths = images.map((img) => img.filePath).toList();
 
-      // ★ Isolateを使用して画像合成を実行（メインスレッドをブロックしない）
+      // ★ 修正：Isolateは画像合成のみ、ギャラリー保存はメインで実行
       final result = await _composeInIsolate(
         imagePaths: imagePaths,
         gridStyle: session.gridStyle,
@@ -107,24 +109,42 @@ class ImageComposerService {
       if (result.success && result.filePath != null) {
         debugPrint('★ Isolate画像合成完了: ${result.filePath}');
 
-        // ★ 一時ファイルのクリーンアップ（バックグラウンドで実行）
+        // ★ 重要：ギャラリー保存をメインIsolateで実行（BackgroundIsolateBinaryMessengerエラー回避）
+        bool gallerySaveSuccess = false;
+        try {
+          debugPrint('★ メインIsolateでギャラリー保存開始...');
+
+          // ★ メインスレッド負荷軽減のため、少し遅延してからギャラリー保存
+          await Future.delayed(const Duration(milliseconds: 100));
+
+          await Gal.putImage(result.filePath!);
+          gallerySaveSuccess = true;
+          debugPrint('★ メインIsolateでギャラリー保存完了');
+        } catch (e) {
+          debugPrint('★ メインIsolateギャラリー保存エラー: $e');
+          // ギャラリー保存失敗でもアプリ内ファイルは保存済みなので処理継続
+        }
+
+        // 一時ファイルのクリーンアップ（バックグラウンドで実行）
         _cleanupTemporaryFilesAsync(session);
 
         return CompositeResult(
           success: true,
           filePath: result.filePath,
-          message: '画像の合成が完了しました',
+          message: gallerySaveSuccess
+              ? '画像の合成と保存が完了しました'
+              : '画像の合成が完了しました（ギャラリー保存は失敗）',
         );
       } else {
         return CompositeResult(success: false, message: result.message);
       }
     } catch (e) {
-      debugPrint('★ Isolate画像合成エラー: $e');
+      debugPrint('★ 画像合成エラー（ギャラリー保存分離版）: $e');
       return CompositeResult(success: false, message: '画像の合成に失敗しました: $e');
     }
   }
 
-  /// ★ 新規追加：Isolateを使った画像合成の実行
+  /// ★ 修正：Isolateを使った画像合成（ギャラリー保存除去版）
   Future<CompositeResponse> _composeInIsolate({
     required List<String> imagePaths,
     required GridStyle gridStyle,
@@ -137,7 +157,7 @@ class ImageComposerService {
     final completer = Completer<CompositeResponse>();
 
     try {
-      // ★ Isolateを生成して画像処理を実行
+      // Isolateを生成して画像処理を実行
       await Isolate.spawn(
         _compositeIsolateEntryPoint,
         CompositeRequest(
@@ -150,7 +170,7 @@ class ImageComposerService {
         ),
       );
 
-      // ★ Isolateからの進捗とレスポンスを処理
+      // Isolateからの進捗とレスポンスを処理
       receivePort.listen((message) {
         if (message is CompositeProgress) {
           // 進捗報告をUIに伝達（頻度制限付き）
@@ -164,7 +184,7 @@ class ImageComposerService {
         }
       });
 
-      // ★ タイムアウト付きで結果を待機
+      // タイムアウト付きで結果を待機
       return await completer.future.timeout(
         const Duration(minutes: 5), // 最大5分待機
         onTimeout: () {
@@ -178,10 +198,10 @@ class ImageComposerService {
     }
   }
 
-  /// ★ 新規追加：Isolateのエントリーポイント（画像合成を実行）
+  /// ★ 修正：Isolateのエントリーポイント（ギャラリー保存除去版）
   static void _compositeIsolateEntryPoint(CompositeRequest request) async {
     try {
-      debugPrint('★ Isolate内での画像合成開始');
+      debugPrint('★ Isolate内での画像合成開始（ギャラリー保存なし）');
 
       // 進捗報告：画像読み込み開始
       request.responsePort.send(
@@ -192,7 +212,7 @@ class ImageComposerService {
         ),
       );
 
-      // ★ 各画像をIsolate内で読み込み
+      // 各画像をIsolate内で読み込み
       List<img.Image> loadedImages = [];
       for (int i = 0; i < request.imagePaths.length; i++) {
         final imagePath = request.imagePaths[i];
@@ -228,7 +248,7 @@ class ImageComposerService {
         ),
       );
 
-      // ★ モードに応じた合成処理をIsolate内で実行
+      // モードに応じた合成処理をIsolate内で実行
       img.Image compositeImage;
       if (request.mode == ShootingMode.catalog) {
         compositeImage = _createCatalogCompositeInIsolate(
@@ -249,25 +269,26 @@ class ImageComposerService {
         CompositeProgress(
           current: request.imagePaths.length + 1,
           total: request.imagePaths.length + 2,
-          message: '画像を保存中...',
+          message: '画像をファイルに保存中...',
         ),
       );
 
-      // ★ 合成画像をIsolate内で保存
-      await _saveCompositeImageInIsolate(
+      // ★ 修正：合成画像をファイル保存のみ（ギャラリー保存はメインIsolateで）
+      await _saveCompositeImageToFileInIsolate(
         compositeImage,
         request.outputPath,
         request.settings,
       );
 
-      debugPrint('★ Isolate内での画像合成完了: ${request.outputPath}');
+      debugPrint('★ Isolate内での画像合成完了（ファイル保存のみ）: ${request.outputPath}');
 
-      // ★ 成功結果をメインIsolateに送信
+      // ★ 修正：成功結果をメインIsolateに送信（ギャラリー保存はメイン側で）
       request.responsePort.send(
         CompositeResponse(
           success: true,
           filePath: request.outputPath,
-          message: '画像の合成が完了しました',
+          message: '画像の合成が完了しました（ファイル保存済み）',
+          needsGallerySave: true, // ★ メイン側でギャラリー保存実行指示
         ),
       );
     } catch (e) {
@@ -278,7 +299,7 @@ class ImageComposerService {
     }
   }
 
-  /// ★ 修正：Isolate内でのカタログモード合成処理
+  /// Isolate内でのカタログモード合成処理（既存と同じ）
   static img.Image _createCatalogCompositeInIsolate({
     required List<img.Image> images,
     required GridStyle gridStyle,
@@ -349,7 +370,7 @@ class ImageComposerService {
     return composite;
   }
 
-  /// ★ 修正：Isolate内での不可能合成モード処理
+  /// Isolate内での不可能合成モード処理（既存と同じ）
   static img.Image _createImpossibleCompositeInIsolate({
     required List<img.Image> images,
     required GridStyle gridStyle,
@@ -429,7 +450,7 @@ class ImageComposerService {
     return composite;
   }
 
-  /// ★ 新規追加：Isolate内でのFlutter Color変換
+  /// Isolate内でのFlutter Color変換（既存と同じ）
   static img.Color _convertFlutterColorToImageColorInIsolate(
     ui.Color flutterColor,
   ) {
@@ -440,8 +461,8 @@ class ImageComposerService {
     );
   }
 
-  /// ★ 新規追加：Isolate内での画像保存処理
-  static Future<void> _saveCompositeImageInIsolate(
+  /// ★ 修正：Isolate内でのファイル保存のみ（ギャラリー保存除去）
+  static Future<void> _saveCompositeImageToFileInIsolate(
     img.Image image,
     String outputPath,
     AppSettings settings,
@@ -454,18 +475,11 @@ class ImageComposerService {
     final file = File(outputPath);
     await file.writeAsBytes(jpegBytes);
 
-    // ★ 修正：ギャラリー保存をtry-catchで囲む（権限エラー対策）
-    try {
-      debugPrint('★ Isolate内ギャラリーへの保存を開始...');
-      await Gal.putImage(outputPath);
-      debugPrint('★ Isolate内ギャラリーへの保存完了');
-    } catch (e) {
-      debugPrint('★ Isolate内ギャラリー保存エラー: $e');
-      // エラーが発生してもアプリ内のファイルは保存されているので、処理を続行
-    }
+    debugPrint('★ Isolate内ファイル保存完了: $outputPath');
+    // ★ 重要：ギャラリー保存はメインIsolateで実行するため、ここでは行わない
   }
 
-  /// ★ 修正：一時ファイルの非同期クリーンアップ（メインスレッドを阻害しない）
+  /// 一時ファイルの非同期クリーンアップ（メインスレッドを阻害しない）
   Future<void> _cleanupTemporaryFilesAsync(ShootingSession session) async {
     // バックグラウンドで実行
     Future.delayed(const Duration(seconds: 2), () async {
@@ -483,7 +497,7 @@ class ImageComposerService {
     });
   }
 
-  /// ★ 既存：画像のメタデータを取得（軽量化）
+  /// 画像のメタデータを取得（軽量化）
   Future<ImageMetadata?> getImageMetadata(String filePath) async {
     try {
       final file = File(filePath);
@@ -491,7 +505,7 @@ class ImageComposerService {
         return null;
       }
 
-      // ★ 修正：メタデータ取得を軽量化（ファイルサイズ情報のみ先に取得）
+      // メタデータ取得を軽量化（ファイルサイズ情報のみ先に取得）
       final stat = await file.stat();
 
       // 画像サイズ情報は必要時のみ取得
@@ -514,12 +528,12 @@ class ImageComposerService {
     }
   }
 
-  /// ★ 既存：一時ファイルを削除（同期版）
+  /// 一時ファイルを削除（同期版）
   Future<void> cleanupTemporaryFiles(ShootingSession session) async {
     await _cleanupTemporaryFilesAsync(session);
   }
 
-  /// ★ 既存：プレビュー用の縮小画像を作成（軽量化）
+  /// プレビュー用の縮小画像を作成（軽量化）
   Future<String?> createPreviewImage(
     String originalPath, {
     int maxSize = 500,
@@ -530,8 +544,7 @@ class ImageComposerService {
         return null;
       }
 
-      // ★ 修正：プレビュー作成もIsolateで実行することを検討
-      // しかし、プレビューは小さいサイズなので、現在はメインスレッドで実行
+      // プレビューは小さいサイズなので、現在はメインスレッドで実行
       final bytes = await file.readAsBytes();
       final image = img.decodeImage(bytes);
       if (image == null) {

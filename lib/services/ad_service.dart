@@ -18,17 +18,27 @@ class AdService {
   int _interstitialShowCount = 0;
   DateTime? _lastInterstitialShow;
 
-  // ★ 新規追加：広告ロード状態管理
+  // 広告ロード状態管理
   bool _isBannerLoading = false;
   bool _isInterstitialLoading = false;
   bool _isRewardedLoading = false;
 
-  // ★ 新規追加：メインスレッド負荷制御
+  // ★ 修正：メインスレッド負荷制御（FrameEvents対策）
   bool _isBackgroundMode = false;
+  bool _isHeavyProcessingActive = false; // 重い処理中（合成中など）
+  DateTime? _lastAdDisplayTime; // 前回広告表示時刻
 
   // インタースティシャル広告の表示間隔（分）
   static const int _interstitialCooldownMinutes = 3;
   static const int _interstitialShowThreshold = 2;
+
+  // ★ 修正：FrameEvents対策のタイミング制御定数
+  static const Duration _minAdDisplayInterval = Duration(
+    seconds: 2,
+  ); // 最小広告表示間隔
+  static const Duration _heavyProcessingDelay = Duration(
+    milliseconds: 500,
+  ); // 重い処理後の遅延
 
   // テスト広告ID（常にHTTPSベース）
   static const String _testBannerAdUnitId =
@@ -51,7 +61,7 @@ class AdService {
     if (_isInitialized) return;
 
     try {
-      debugPrint('★ AdService初期化開始（負荷軽減版）');
+      debugPrint('★ AdService初期化開始（FrameEvents対策版）');
 
       if (Platform.isIOS) {
         _initializeIOS();
@@ -75,6 +85,47 @@ class AdService {
   /// Android固有の初期化
   void _initializeAndroid() {
     debugPrint('★ Android向けAdService設定を適用');
+  }
+
+  /// ★ 新規追加：重い処理状態の管理（FrameEvents対策）
+  void setHeavyProcessingActive(bool active) {
+    _isHeavyProcessingActive = active;
+    debugPrint('★ 重い処理状態変更: $active (FrameEvents対策)');
+  }
+
+  /// ★ 修正：表示タイミング制御付きのチェック
+  bool _canDisplayAd() {
+    // バックグラウンドモード中は表示しない
+    if (_isBackgroundMode) {
+      debugPrint('★ 広告表示スキップ: バックグラウンドモード中');
+      return false;
+    }
+
+    // 重い処理中は表示しない（FrameEvents回避）
+    if (_isHeavyProcessingActive) {
+      debugPrint('★ 広告表示スキップ: 重い処理中（FrameEvents対策）');
+      return false;
+    }
+
+    // 最小表示間隔チェック（PlatformView attach負荷分散）
+    if (_lastAdDisplayTime != null) {
+      final timeSinceLastDisplay = DateTime.now().difference(
+        _lastAdDisplayTime!,
+      );
+      if (timeSinceLastDisplay < _minAdDisplayInterval) {
+        debugPrint(
+          '★ 広告表示スキップ: 最小間隔未満 (${timeSinceLastDisplay.inMilliseconds}ms)',
+        );
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /// ★ 修正：表示タイミング記録
+  void _recordAdDisplayTime() {
+    _lastAdDisplayTime = DateTime.now();
   }
 
   /// トラッキング許可状況を更新
@@ -118,7 +169,7 @@ class AdService {
     return _testRewardedAdUnitId;
   }
 
-  /// ★ 修正：バナー広告を作成（メインスレッド負荷軽減）
+  /// ★ 修正：FrameEvents対策バナー広告作成（段階的ロード）
   Future<BannerAd?> createBannerAd({
     AdSize adSize = AdSize.banner,
     required Function(Ad ad) onAdLoaded,
@@ -129,9 +180,9 @@ class AdService {
       return null;
     }
 
-    // ★ メインスレッド負荷軽減のため、バックグラウンドモード中は延期
-    if (_isBackgroundMode) {
-      debugPrint('★ バックグラウンドモード中のため、バナー広告ロードを延期');
+    // ★ 表示タイミングチェック（FrameEvents対策）
+    if (!_canDisplayAd()) {
+      debugPrint('★ バナー広告作成をスキップ（FrameEvents対策）');
       return null;
     }
 
@@ -140,8 +191,8 @@ class AdService {
     try {
       _bannerAd?.dispose();
 
-      // ★ 修正：バナー広告作成を非同期で実行（メインスレッド負荷軽減）
-      await Future.delayed(const Duration(milliseconds: 100)); // UI更新を優先
+      // ★ 修正：メインスレッド負荷分散のため段階的実行
+      await Future.delayed(const Duration(milliseconds: 200));
 
       _bannerAd = BannerAd(
         adUnitId: _bannerAdUnitId,
@@ -150,7 +201,8 @@ class AdService {
         listener: BannerAdListener(
           onAdLoaded: (ad) {
             _isBannerLoading = false;
-            debugPrint('★ バナー広告の読み込み完了 (負荷軽減版)');
+            _recordAdDisplayTime(); // ★ 表示時刻記録
+            debugPrint('★ バナー広告の読み込み完了 (FrameEvents対策版)');
             onAdLoaded(ad);
           },
           onAdFailedToLoad: (ad, error) {
@@ -171,8 +223,8 @@ class AdService {
         ),
       );
 
-      // ★ 修正：バナー広告ロードをバックグラウンドで実行
-      _loadBannerInBackground();
+      // ★ 修正：さらに段階的なロード実行（FrameEvents回避）
+      await _loadBannerWithFrameControl();
       return _bannerAd;
     } catch (e) {
       _isBannerLoading = false;
@@ -181,36 +233,45 @@ class AdService {
     }
   }
 
-  /// ★ 新規追加：バナー広告のバックグラウンドロード
-  Future<void> _loadBannerInBackground() async {
+  /// ★ 新規追加：Frame制御付きバナーロード
+  Future<void> _loadBannerWithFrameControl() async {
     try {
-      // メインスレッドの負荷を軽減するため、微小な遅延を挟む
-      await Future.delayed(const Duration(milliseconds: 50));
+      // メインスレッドの負荷を軽減するため、フレーム間で実行
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      debugPrint('★ バナー広告ロード開始（Frame制御付き）');
       await _bannerAd!.load();
+
+      // ロード完了後の安定化待機
+      await Future.delayed(const Duration(milliseconds: 50));
     } catch (e) {
       _isBannerLoading = false;
-      debugPrint('★ バナー広告バックグラウンドロードエラー: $e');
+      debugPrint('★ Frame制御付きバナーロードエラー: $e');
     }
   }
 
-  /// ★ 修正：インタースティシャル広告を読み込み（負荷軽減版）
+  /// ★ 修正：FrameEvents対策インタースティシャル広告読み込み
   Future<void> loadInterstitialAd({
     Function? onAdLoaded,
     Function(LoadAdError)? onAdFailedToLoad,
   }) async {
     if (!_isInitialized || _isInterstitialLoading) return;
 
-    // ★ バックグラウンドモード中は延期
-    if (_isBackgroundMode) {
-      debugPrint('★ バックグラウンドモード中のため、インタースティシャル広告ロードを延期');
+    // ★ 表示タイミングチェック
+    if (!_canDisplayAd()) {
+      debugPrint('★ インタースティシャル広告ロードをスキップ（FrameEvents対策）');
       return;
     }
 
     _isInterstitialLoading = true;
 
     try {
-      // ★ 修正：メインスレッド負荷軽減のための遅延実行
-      await Future.delayed(const Duration(milliseconds: 200));
+      // ★ 修正：重い処理後の場合は追加遅延
+      if (_isHeavyProcessingActive) {
+        await Future.delayed(_heavyProcessingDelay);
+      } else {
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
 
       await InterstitialAd.load(
         adUnitId: _interstitialAdUnitId,
@@ -219,7 +280,7 @@ class AdService {
           onAdLoaded: (ad) {
             _isInterstitialLoading = false;
             _interstitialAd = ad;
-            debugPrint('★ インタースティシャル広告の読み込み完了 (負荷軽減版)');
+            debugPrint('★ インタースティシャル広告の読み込み完了 (FrameEvents対策版)');
             onAdLoaded?.call();
 
             _setInterstitialCallbacks();
@@ -238,11 +299,11 @@ class AdService {
     }
   }
 
-  /// ★ 修正：インタースティシャル広告を表示（BufferQueue問題回避）
+  /// ★ 修正：FrameEvents対策インタースティシャル広告表示
   Future<void> showInterstitialAd({bool forceShow = false}) async {
     if (_interstitialAd == null) {
       debugPrint('★ インタースティシャル広告が準備されていません');
-      // ★ 修正：次回に備えて非同期で読み込み開始（メインスレッド負荷軽減）
+      // 次回に備えて非同期で読み込み開始
       _loadInterstitialAdInBackground();
       return;
     }
@@ -252,10 +313,17 @@ class AdService {
       return;
     }
 
-    try {
-      // ★ 修正：広告表示前に短時間待機（BufferQueue安定化）
-      await Future.delayed(const Duration(milliseconds: 100));
+    // ★ 表示タイミングチェック（FrameEvents対策）
+    if (!_canDisplayAd()) {
+      debugPrint('★ インタースティシャル広告表示をスキップ（FrameEvents対策）');
+      return;
+    }
 
+    try {
+      // ★ 修正：広告表示前の安定化待機（BufferQueue + FrameEvents対策）
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      _recordAdDisplayTime(); // ★ 表示時刻記録
       await _interstitialAd!.show();
       _lastInterstitialShow = DateTime.now();
       _interstitialShowCount = 0;
@@ -264,33 +332,33 @@ class AdService {
     }
   }
 
-  /// ★ 新規追加：インタースティシャル広告の非同期ロード
+  /// インタースティシャル広告の非同期ロード
   Future<void> _loadInterstitialAdInBackground() async {
-    // バックグラウンドで次の広告を準備
-    Future.delayed(const Duration(seconds: 1), () {
-      if (!_isInterstitialLoading) {
+    // ★ 修正：FrameEvents対策で遅延を拡張
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!_isInterstitialLoading && _canDisplayAd()) {
         loadInterstitialAd();
       }
     });
   }
 
-  /// ★ 修正：リワード広告を読み込み（負荷軽減版）
+  /// ★ 修正：FrameEvents対策リワード広告読み込み
   Future<void> loadRewardedAd({
     Function? onAdLoaded,
     Function(LoadAdError)? onAdFailedToLoad,
   }) async {
     if (!_isInitialized || _isRewardedLoading) return;
 
-    if (_isBackgroundMode) {
-      debugPrint('★ バックグラウンドモード中のため、リワード広告ロードを延期');
+    if (!_canDisplayAd()) {
+      debugPrint('★ リワード広告ロードをスキップ（FrameEvents対策）');
       return;
     }
 
     _isRewardedLoading = true;
 
     try {
-      // ★ 修正：メインスレッド負荷軽減のための遅延実行
-      await Future.delayed(const Duration(milliseconds: 300));
+      // ★ 修正：段階的遅延実行
+      await Future.delayed(const Duration(milliseconds: 400));
 
       await RewardedAd.load(
         adUnitId: _rewardedAdUnitId,
@@ -299,7 +367,7 @@ class AdService {
           onAdLoaded: (ad) {
             _isRewardedLoading = false;
             _rewardedAd = ad;
-            debugPrint('★ リワード広告の読み込み完了 (負荷軽減版)');
+            debugPrint('★ リワード広告の読み込み完了 (FrameEvents対策版)');
             onAdLoaded?.call();
 
             _setRewardedCallbacks();
@@ -327,10 +395,17 @@ class AdService {
       return;
     }
 
-    try {
-      // ★ 修正：広告表示前に短時間待機（BufferQueue安定化）
-      await Future.delayed(const Duration(milliseconds: 100));
+    // ★ 表示タイミングチェック
+    if (!_canDisplayAd()) {
+      debugPrint('★ リワード広告表示をスキップ（FrameEvents対策）');
+      return;
+    }
 
+    try {
+      // ★ 修正：広告表示前の安定化待機
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      _recordAdDisplayTime(); // ★ 表示時刻記録
       await _rewardedAd!.show(
         onUserEarnedReward: (ad, reward) {
           debugPrint('★ リワード獲得: ${reward.amount} ${reward.type}');
@@ -361,7 +436,7 @@ class AdService {
     return true;
   }
 
-  /// インタースティシャル広告のコールバックを設定
+  /// ★ 修正：FrameEvents対策付きインタースティシャルコールバック
   void _setInterstitialCallbacks() {
     _interstitialAd?.fullScreenContentCallback = FullScreenContentCallback(
       onAdShowedFullScreenContent: (ad) {
@@ -372,8 +447,10 @@ class AdService {
         ad.dispose();
         _interstitialAd = null;
 
-        // ★ 修正：次の広告を非同期で事前読み込み（メインスレッド負荷軽減）
-        _loadInterstitialAdInBackground();
+        // ★ 修正：広告終了後のFrame安定化待機
+        Future.delayed(const Duration(milliseconds: 300), () {
+          _loadInterstitialAdInBackground();
+        });
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         debugPrint('★ インタースティシャル広告の表示に失敗: $error');
@@ -386,7 +463,7 @@ class AdService {
     );
   }
 
-  /// リワード広告のコールバックを設定
+  /// ★ 修正：FrameEvents対策付きリワードコールバック
   void _setRewardedCallbacks() {
     _rewardedAd?.fullScreenContentCallback = FullScreenContentCallback(
       onAdShowedFullScreenContent: (ad) {
@@ -397,9 +474,9 @@ class AdService {
         ad.dispose();
         _rewardedAd = null;
 
-        // ★ 修正：次の広告を非同期で事前読み込み
-        Future.delayed(const Duration(seconds: 2), () {
-          if (!_isRewardedLoading) {
+        // ★ 修正：Frame安定化後に次の広告準備
+        Future.delayed(const Duration(milliseconds: 400), () {
+          if (!_isRewardedLoading && _canDisplayAd()) {
             loadRewardedAd();
           }
         });
@@ -423,37 +500,40 @@ class AdService {
     );
   }
 
-  /// ★ 修正：アプリ再開時の処理（負荷軽減）
+  /// ★ 修正：FrameEvents対策アプリ再開処理
   void resumeAds() {
-    debugPrint('★ 広告の再開処理（負荷軽減版）');
+    debugPrint('★ 広告の再開処理（FrameEvents対策版）');
     _isBackgroundMode = false;
 
-    // ★ バックグラウンドモードから復帰した際の広告再ロード（遅延実行）
-    Future.delayed(const Duration(seconds: 2), () {
-      if (_interstitialAd == null && !_isInterstitialLoading) {
+    // ★ バックグラウンド復帰時の段階的広告再ロード
+    Future.delayed(const Duration(seconds: 3), () {
+      if (_interstitialAd == null &&
+          !_isInterstitialLoading &&
+          _canDisplayAd()) {
         _loadInterstitialAdInBackground();
       }
     });
   }
 
-  /// ★ 修正：アプリ一時停止時の処理（リソース節約）
+  /// アプリ一時停止時の処理
   void pauseAds() {
     debugPrint('★ 広告の一時停止処理');
     _isBackgroundMode = true;
 
-    // ★ バックグラウンド時はロード中の広告処理を停止
-    // 実際の広告は破棄せず、ロード状態のみ管理
+    // ★ 重い処理状態もリセット
+    _isHeavyProcessingActive = false;
   }
 
-  /// ★ 修正：リソースの解放（完全版）
+  /// ★ 修正：完全リソース解放
   void dispose() {
     try {
-      debugPrint('★ AdServiceのリソース解放開始');
+      debugPrint('★ AdServiceのリソース解放開始（FrameEvents対策版）');
 
-      // ★ ロード状態をリセット
+      // ロード状態をリセット
       _isBannerLoading = false;
       _isInterstitialLoading = false;
       _isRewardedLoading = false;
+      _isHeavyProcessingActive = false;
 
       _bannerAd?.dispose();
       _interstitialAd?.dispose();
@@ -471,10 +551,12 @@ class AdService {
 
   /// デバッグ情報を出力
   void debugPrintStatus() {
-    debugPrint('=== AdService Status (負荷軽減版) ===');
+    debugPrint('=== AdService Status (FrameEvents対策版) ===');
     debugPrint('初期化状態: $_isInitialized');
     debugPrint('トラッキング許可: $_isTrackingAuthorized');
     debugPrint('バックグラウンドモード: $_isBackgroundMode');
+    debugPrint('重い処理中: $_isHeavyProcessingActive');
+    debugPrint('前回広告表示: $_lastAdDisplayTime');
     debugPrint(
       'バナー広告: ${_bannerAd != null ? '読み込み済み' : '未読み込み'} (ロード中: $_isBannerLoading)',
     );

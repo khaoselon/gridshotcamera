@@ -36,9 +36,10 @@ class _CameraScreenState extends State<CameraScreen>
   bool _isScreenDisposed = false;
   Timer? _debounceTimer;
 
-  // ★ 修正：プレビュー表示状態の管理追加
+  // ★ 修正：画面遷移状態管理（BufferQueue対策）
   bool _isPreviewVisible = false;
   bool _isDisposing = false;
+  bool _isTransitioning = false; // 画面遷移中フラグ
 
   // アニメーション関連
   late AnimationController _flashAnimationController;
@@ -60,6 +61,9 @@ class _CameraScreenState extends State<CameraScreen>
     _initializeSession();
     _initializeAnimations();
 
+    // ★ 修正：カメラ画面でも重い処理状態を通知（撮影処理のため）
+    AdService.instance.setHeavyProcessingActive(true);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.delayed(const Duration(milliseconds: 300), () {
         if (!_isScreenDisposed && !_isDisposing) {
@@ -71,51 +75,56 @@ class _CameraScreenState extends State<CameraScreen>
 
   @override
   void dispose() {
-    debugPrint('CameraScreen: dispose開始');
+    debugPrint('CameraScreen: dispose開始（BufferQueue対策版）');
     _isScreenDisposed = true;
     _isDisposing = true;
 
     _debounceTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
 
-    // ★ 修正：適切な順序でdisposeを実行
+    // ★ 修正：適切な順序でdisposeを実行（BufferQueue対策）
     _disposeResourcesInOrder();
 
     super.dispose();
     debugPrint('CameraScreen: dispose完了');
   }
 
-  /// ★ 新規追加：適切な順序でリソースを解放
+  /// ★ 修正：BufferQueue対策リソース解放
   Future<void> _disposeResourcesInOrder() async {
-    debugPrint('CameraScreen: リソース解放開始');
+    debugPrint('CameraScreen: リソース解放開始（BufferQueue対策版）');
 
     try {
       // 1. アニメーションコントローラーを停止
       _flashAnimationController.dispose();
       _progressAnimationController.dispose();
 
-      // 2. プレビューの表示を停止
+      // 2. ★ 重要：プレビューの表示を停止（BufferQueue abandoned防止の核心）
       if (_isPreviewVisible) {
         _isPreviewVisible = false;
         debugPrint('プレビュー表示を停止');
+
+        // プレビュー停止後の安定化待機
+        await Future.delayed(const Duration(milliseconds: 100));
       }
 
       // 3. カメラサービスからリスナーを削除
       _cameraService.removeListener(_onCameraServiceChanged);
 
-      // 4. ★ 重要：CameraServiceのdisposeを実行
-      // これによりpreviewView.setSurfaceProvider(null) → unbindAll() → dispose()が適切な順序で実行される
-      debugPrint('CameraServiceのdispose開始');
+      // 4. ★ 重要：CameraServiceの段階的dispose実行
+      debugPrint('CameraServiceの段階的dispose開始');
       await _cameraService.dispose();
-      debugPrint('CameraServiceのdispose完了');
+      debugPrint('CameraServiceの段階的dispose完了');
 
-      // 5. ★ 修正：dispose後にBufferQueue安定化のための待機
+      // 5. ★ 修正：dispose後のBufferQueue完全安定化待機
       await Future.delayed(const Duration(milliseconds: 200));
+
+      // 6. ★ AdServiceの重い処理状態を解除
+      AdService.instance.setHeavyProcessingActive(false);
     } catch (e) {
       debugPrint('リソース解放中のエラー: $e');
     }
 
-    debugPrint('CameraScreen: リソース解放完了');
+    debugPrint('CameraScreen: リソース解放完了（BufferQueue対策版）');
   }
 
   void _initializeSession() {
@@ -155,7 +164,7 @@ class _CameraScreenState extends State<CameraScreen>
     });
 
     try {
-      debugPrint('カメラサービスを初期化します');
+      debugPrint('カメラサービスを初期化します（BufferQueue対策版）');
 
       _cameraService = CameraService();
       _cameraService.addListener(_onCameraServiceChanged);
@@ -163,7 +172,7 @@ class _CameraScreenState extends State<CameraScreen>
       final success = await _cameraService.initialize();
 
       if (success && mounted && !_isScreenDisposed && !_isDisposing) {
-        // ★ 修正：プレビュー表示状態を管理
+        // ★ 修正：プレビュー表示状態を適切に管理
         _isPreviewVisible = true;
         _cameraService.setPreviewBound(true);
 
@@ -186,7 +195,11 @@ class _CameraScreenState extends State<CameraScreen>
           });
 
           _updateProgressAnimation();
-          debugPrint('カメラの初期化が完了しました');
+
+          // ★ カメラ初期化完了後、撮影可能状態なので重い処理状態を一部解除
+          AdService.instance.setHeavyProcessingActive(false);
+
+          debugPrint('カメラの初期化が完了しました（BufferQueue対策版）');
         }
       } else if (mounted && !_isScreenDisposed && !_isDisposing) {
         setState(() {
@@ -230,7 +243,8 @@ class _CameraScreenState extends State<CameraScreen>
     if (_isTakingPicture ||
         !_cameraService.isInitialized ||
         _isScreenDisposed ||
-        _isDisposing) {
+        _isDisposing ||
+        _isTransitioning) {
       return;
     }
 
@@ -244,9 +258,13 @@ class _CameraScreenState extends State<CameraScreen>
     if (_isTakingPicture ||
         !_cameraService.isInitialized ||
         _isScreenDisposed ||
-        _isDisposing) {
+        _isDisposing ||
+        _isTransitioning) {
       return;
     }
+
+    // ★ 撮影中は重い処理状態を設定
+    AdService.instance.setHeavyProcessingActive(true);
 
     setState(() {
       _isTakingPicture = true;
@@ -281,6 +299,9 @@ class _CameraScreenState extends State<CameraScreen>
 
         if (_session.isCompleted) {
           await _onShootingCompleted();
+        } else {
+          // ★ 撮影完了したが続きがある場合は重い処理状態を解除
+          AdService.instance.setHeavyProcessingActive(false);
         }
       } else if (mounted && !_isScreenDisposed && !_isDisposing) {
         _showError('撮影に失敗しました');
@@ -294,42 +315,81 @@ class _CameraScreenState extends State<CameraScreen>
         setState(() {
           _isTakingPicture = false;
         });
+
+        // ★ 撮影終了時は重い処理状態を解除（エラーケース含む）
+        if (!_session.isCompleted) {
+          AdService.instance.setHeavyProcessingActive(false);
+        }
       }
     }
   }
 
+  /// ★ 修正：BufferQueue + FrameEvents対策の画面遷移
   Future<void> _onShootingCompleted() async {
-    if (_isScreenDisposed || _isDisposing) return;
+    if (_isScreenDisposed || _isDisposing || _isTransitioning) return;
 
-    // ★ 修正：画面遷移前にプレビューを解放
-    if (_isPreviewVisible) {
-      _isPreviewVisible = false;
-      _cameraService.setPreviewBound(false);
+    _isTransitioning = true; // 遷移開始フラグ
 
-      // ★ 重要：Surface解放のための短時間待機
+    try {
+      debugPrint('★ 撮影完了 - 安全な画面遷移を開始');
+
+      // ★ 段階1：AdServiceに重い処理を通知（合成処理のため）
+      AdService.instance.setHeavyProcessingActive(true);
+
+      // ★ 段階2：プレビューを安全に解放（BufferQueue abandoned防止）
+      if (_isPreviewVisible) {
+        _isPreviewVisible = false;
+        _cameraService.setPreviewBound(false);
+
+        // ★ 重要：Surface解放の安定化待機
+        await Future.delayed(const Duration(milliseconds: 150));
+      }
+
+      // ★ 段階3：BufferQueue完全安定化待機
       await Future.delayed(const Duration(milliseconds: 100));
+
+      // ★ 段階4：画面遷移実行（広告表示は遷移後）
+      if (!mounted || _isScreenDisposed || _isDisposing) return;
+
+      Navigator.of(context)
+          .pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => PreviewScreen(session: _session),
+            ),
+          )
+          .then((_) {
+            // ★ 修正：画面遷移完了後に広告を表示（FrameEvents回避）
+            debugPrint('★ 画面遷移完了 - 広告表示をスケジュール');
+
+            // 遷移完了後、少し遅延してから広告表示
+            Future.delayed(const Duration(milliseconds: 500), () {
+              AdService.instance.showInterstitialAd();
+            });
+          });
+    } catch (e) {
+      debugPrint('★ 安全な画面遷移エラー: $e');
+
+      // エラー時もフォールバック遷移を試行
+      if (mounted && !_isScreenDisposed && !_isDisposing) {
+        try {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => PreviewScreen(session: _session),
+            ),
+          );
+        } catch (fallbackError) {
+          debugPrint('★ フォールバック遷移もエラー: $fallbackError');
+        }
+      }
     }
-
-    // ★ 修正：広告表示は画面遷移後に実行（BufferQueue問題回避）
-    if (!mounted || _isScreenDisposed || _isDisposing) return;
-
-    Navigator.of(context)
-        .pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => PreviewScreen(session: _session),
-          ),
-        )
-        .then((_) {
-          // 画面遷移後に広告を表示
-          AdService.instance.showInterstitialAd();
-        });
   }
 
   void _retakeCurrentPicture() {
     if (_session.hasCurrentImage &&
         !_isScreenDisposed &&
         !_isDisposing &&
-        !_isTakingPicture) {
+        !_isTakingPicture &&
+        !_isTransitioning) {
       setState(() {
         _session.capturedImages[_session.currentIndex] = null;
         _updateProgressAnimation();
@@ -338,7 +398,11 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Future<void> _toggleFlashMode() async {
-    if (_isScreenDisposed || _isDisposing || _isTakingPicture) return;
+    if (_isScreenDisposed ||
+        _isDisposing ||
+        _isTakingPicture ||
+        _isTransitioning)
+      return;
 
     await _cameraService.toggleFlashMode();
     if (mounted &&
@@ -351,18 +415,23 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
+  /// ★ 修正：BufferQueue対策カメラ切り替え
   Future<void> _switchCamera() async {
-    if (_isScreenDisposed || _isDisposing || _isTakingPicture) return;
+    if (_isScreenDisposed ||
+        _isDisposing ||
+        _isTakingPicture ||
+        _isTransitioning)
+      return;
 
     setState(() {
       _isInitializing = true;
     });
 
-    // ★ 修正：カメラ切り替え前にプレビューを解放
+    // ★ 修正：カメラ切り替え前の段階的プレビュー解放
     if (_isPreviewVisible) {
       _isPreviewVisible = false;
       _cameraService.setPreviewBound(false);
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future.delayed(const Duration(milliseconds: 150));
     }
 
     await _cameraService.switchCamera();
@@ -378,7 +447,11 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   void _onZoomChanged(double zoom) {
-    if (_isScreenDisposed || _isDisposing || _isTakingPicture) return;
+    if (_isScreenDisposed ||
+        _isDisposing ||
+        _isTakingPicture ||
+        _isTransitioning)
+      return;
 
     final clampedZoom = zoom.clamp(_minZoom, _maxZoom);
 
@@ -396,7 +469,8 @@ class _CameraScreenState extends State<CameraScreen>
     if (!_cameraService.isInitialized ||
         _isScreenDisposed ||
         _isDisposing ||
-        _isTakingPicture)
+        _isTakingPicture ||
+        _isTransitioning)
       return;
 
     final renderBox = context.findRenderObject() as RenderBox;
@@ -436,7 +510,7 @@ class _CameraScreenState extends State<CameraScreen>
     switch (state) {
       case AppLifecycleState.inactive:
         debugPrint('CameraScreen: アプリが非アクティブになりました');
-        // ★ 修正：非アクティブ時にプレビューを一時停止
+        // ★ 修正：非アクティブ時の段階的プレビュー停止
         if (_isPreviewVisible) {
           _cameraService.setPreviewBound(false);
         }
@@ -446,11 +520,12 @@ class _CameraScreenState extends State<CameraScreen>
         break;
       case AppLifecycleState.resumed:
         debugPrint('CameraScreen: アプリがフォアグラウンドに戻りました');
-        // ★ 修正：復帰時にプレビューを再開
+        // ★ 修正：復帰時の段階的プレビュー再開
         if (!_cameraService.isInitialized &&
             !_cameraService.isInitializing &&
             !_isTakingPicture &&
-            !_isDisposing) {
+            !_isDisposing &&
+            !_isTransitioning) {
           Future.delayed(const Duration(milliseconds: 500), () {
             if (!_isScreenDisposed && !_isDisposing) {
               _initializeCamera();
