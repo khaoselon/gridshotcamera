@@ -491,8 +491,8 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
       // ★ 修正：ユーザーインタラクション検出付きのホーム画面
       home: GestureDetector(
         onTap: _onUserInteraction,
-        onPanUpdate: (_) => _onUserInteraction(),
-        onScaleUpdate: (_) => _onUserInteraction(),
+        onScaleUpdate: (_) =>
+            _onUserInteraction(), // scale は pan のスーパーセットなので onScaleUpdate のみ使用
         child: const HomeScreen(),
       ),
     );
