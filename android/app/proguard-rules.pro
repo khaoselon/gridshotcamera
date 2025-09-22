@@ -65,3 +65,10 @@
 # R8/ProGuard最適化設定
 -allowaccessmodification
 -repackageclasses
+
+# --- Play Core / Feature Delivery / SplitInstall を保持 ---
+-keep class com.google.android.play.core.** { *; }
+-keep class com.google.android.play.core.splitinstall.** { *; }
+-keep class com.google.android.play.core.splitcompat.** { *; }
+-keep class com.google.android.play.core.tasks.** { *; }
+-dontwarn com.google.android.play.core.**

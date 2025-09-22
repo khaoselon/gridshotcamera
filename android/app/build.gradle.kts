@@ -1,18 +1,29 @@
+// android/app/build.gradle.kts
+import java.util.Properties
+
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    id("kotlin-android")                      // ← org.jetbrains.kotlin.android でもOKだが統一
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val keystoreProperties = Properties().apply {
+    val keystorePropertiesFile = rootProject.file("key.properties")
+    if (keystorePropertiesFile.exists()) {
+        load(keystorePropertiesFile.inputStream())
+    }
 }
 
 android {
     namespace = "com.mkproject.gridshot_camera"
     compileSdk = 36
 
-    // ★ Java 17 に統一
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
+    kotlinOptions { jvmTarget = JavaVersion.VERSION_17.toString() }
 
     defaultConfig {
         applicationId = "com.mkproject.gridshot_camera"
@@ -20,75 +31,61 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        
-        // カメラ関連のパフォーマンス改善
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
-        }
-        
-        // メモリ効率化
+
+        manifestPlaceholders["applicationName"] = "io.flutter.embedding.android.FlutterApplication"
+    
         multiDexEnabled = true
     }
 
+    // ★ リリース署名（family_memo と同じ書式）
+    signingConfigs {
+        create("release") {
+            storeFile = keystoreProperties["storeFile"]?.toString()?.let { file(it) }
+            storePassword = keystoreProperties["storePassword"]?.toString()
+            keyAlias = keystoreProperties["keyAlias"]?.toString()
+            keyPassword = keystoreProperties["keyPassword"]?.toString()
+        }
+        // デフォルトdebugはAndroidが自動作成（debug.keystore）でOK
+    }
+
     buildTypes {
-        debug {
-            signingConfig = signingConfigs.getByName("debug")
+        getByName("debug") {
+            // デバッグはデフォルトのdebug署名で可
             isMinifyEnabled = false
             isDebuggable = true
-            
-            // デバッグ時のメモリ設定
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
-        
-        release {
-            // 開発中は debug キーでOK。ストア配布時は正式署名に差し替え
-            signingConfig = signingConfigs.getByName("debug")
+        getByName("release") {
+            // ★ リリースは正式鍵で署名
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
-            
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
-    
-    // パッケージング設定
+
     packagingOptions {
+        // 必要な場合のみ。不要なら消してOK（重複解決の暫定措置）
         pickFirst("**/libc++_shared.so")
         pickFirst("**/libjsc.so")
     }
-    
-    // コンパイル設定
-    compileOptions {
-        isCoreLibraryDesugaringEnabled = true
-    }
-    
-    // 署名設定（開発用）
-    signingConfigs {
-        getByName("debug") {
-            storeFile = file("debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
-        }
-    }
 }
 
-// ★ Kotlin の JVM ツールチェーンを 17 指定
-kotlin {
-    jvmToolchain(17)
-}
+kotlin { jvmToolchain(17) }
 
-// Flutter 連携
-flutter {
-    source = "../.."
-}
+flutter { source = "../.." }
 
 dependencies {
-    // デシュガリング（API 21+のサポート改善）
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+
+    implementation("com.google.android.play:feature-delivery:2.1.0")
+    implementation("com.google.android.play:feature-delivery-ktx:2.1.0")
 }
+
