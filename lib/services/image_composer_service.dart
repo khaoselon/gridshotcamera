@@ -79,7 +79,8 @@ class ImageComposerService {
       final images = session.getCompletedImages();
 
       if (images.length != session.gridStyle.totalCells) {
-        throw Exception('撮影が完了していない画像があります');
+        // ここでは例外は投げるが、UIには後段で汎用メッセージを返す
+        throw Exception('not_enough_captured_images');
       }
 
       debugPrint(
@@ -136,11 +137,16 @@ class ImageComposerService {
               : '画像の合成が完了しました（ギャラリー保存は失敗）',
         );
       } else {
+        // 失敗時は Isolate 側から返ってきたメッセージ（汎用化済み）をそのまま採用
         return CompositeResult(success: false, message: result.message);
       }
     } catch (e) {
       debugPrint('★ 画像合成エラー（ギャラリー保存分離版）: $e');
-      return CompositeResult(success: false, message: '画像の合成に失敗しました: $e');
+      // ★ ユーザー向け汎用メッセージに統一
+      return CompositeResult(
+        success: false,
+        message: '画像の合成に失敗しました。もう一度お試しください。',
+      );
     }
   }
 
@@ -189,12 +195,21 @@ class ImageComposerService {
         const Duration(minutes: 5), // 最大5分待機
         onTimeout: () {
           receivePort.close();
-          return CompositeResponse(success: false, message: '画像合成がタイムアウトしました');
+          // ★ ユーザー向け汎用メッセージに統一
+          return CompositeResponse(
+            success: false,
+            message: '画像の合成に失敗しました。もう一度お試しください。',
+          );
         },
       );
     } catch (e) {
       receivePort.close();
-      return CompositeResponse(success: false, message: 'Isolate実行エラー: $e');
+      debugPrint('★ Isolate起動エラー: $e');
+      // ★ ユーザー向け汎用メッセージに統一
+      return CompositeResponse(
+        success: false,
+        message: '画像の合成に失敗しました。もう一度お試しください。',
+      );
     }
   }
 
@@ -203,7 +218,7 @@ class ImageComposerService {
     try {
       debugPrint('★ Isolate内での画像合成開始（ギャラリー保存なし）');
 
-      // 進捗報告：画像読み込み開始
+      // 進捗報告：画像読み込み開始（ユーザー表示OK）
       request.responsePort.send(
         CompositeProgress(
           current: 0,
@@ -219,17 +234,17 @@ class ImageComposerService {
         final file = File(imagePath);
 
         if (!await file.exists()) {
-          throw Exception('画像ファイルが見つかりません: $imagePath');
+          throw Exception('file_not_found:$imagePath');
         }
 
         final bytes = await file.readAsBytes();
         final image = img.decodeImage(bytes);
         if (image == null) {
-          throw Exception('画像のデコードに失敗しました: $imagePath');
+          throw Exception('decode_failed:$imagePath');
         }
         loadedImages.add(image);
 
-        // 進捗報告（読み込み進捗）
+        // 進捗報告（読み込み進捗・ユーザー表示OK）
         request.responsePort.send(
           CompositeProgress(
             current: i + 1,
@@ -239,7 +254,7 @@ class ImageComposerService {
         );
       }
 
-      // 進捗報告：合成開始
+      // 進捗報告：合成開始（ユーザー表示OK）
       request.responsePort.send(
         CompositeProgress(
           current: request.imagePaths.length,
@@ -264,7 +279,7 @@ class ImageComposerService {
         );
       }
 
-      // 進捗報告：保存開始
+      // 進捗報告：保存開始（ユーザー表示OK）
       request.responsePort.send(
         CompositeProgress(
           current: request.imagePaths.length + 1,
@@ -282,7 +297,7 @@ class ImageComposerService {
 
       debugPrint('★ Isolate内での画像合成完了（ファイル保存のみ）: ${request.outputPath}');
 
-      // ★ 修正：成功結果をメインIsolateに送信（ギャラリー保存はメイン側で）
+      // ★ 成功結果（このメッセージは基本的に内部用だが、害はないため保持）
       request.responsePort.send(
         CompositeResponse(
           success: true,
@@ -293,8 +308,12 @@ class ImageComposerService {
       );
     } catch (e) {
       debugPrint('★ Isolate内画像合成エラー: $e');
+      // ★ ユーザー向け汎用メッセージに統一
       request.responsePort.send(
-        CompositeResponse(success: false, message: 'Isolate内エラー: $e'),
+        CompositeResponse(
+          success: false,
+          message: '画像の合成に失敗しました。もう一度お試しください。',
+        ),
       );
     }
   }
@@ -306,22 +325,19 @@ class ImageComposerService {
     required AppSettings settings,
   }) {
     if (images.isEmpty) {
-      throw Exception('合成する画像がありません');
+      throw Exception('no_images');
     }
 
     final referenceImage = images.first;
     final originalWidth = referenceImage.width;
     final originalHeight = referenceImage.height;
 
-    final borderWidth = settings.showGridBorder
-        ? settings.borderWidth.toInt()
-        : 0;
+    final borderWidth =
+        settings.showGridBorder ? settings.borderWidth.toInt() : 0;
 
-    final compositeWidth =
-        (originalWidth * gridStyle.columns) +
+    final compositeWidth = (originalWidth * gridStyle.columns) +
         (borderWidth * (gridStyle.columns - 1));
-    final compositeHeight =
-        (originalHeight * gridStyle.rows) +
+    final compositeHeight = (originalHeight * gridStyle.rows) +
         (borderWidth * (gridStyle.rows - 1));
 
     debugPrint(
@@ -336,9 +352,8 @@ class ImageComposerService {
     );
 
     if (settings.showGridBorder && borderWidth > 0) {
-      final borderColor = _convertFlutterColorToImageColorInIsolate(
-        settings.borderColor,
-      );
+      final borderColor =
+          _convertFlutterColorToImageColorInIsolate(settings.borderColor);
       img.fill(composite, color: borderColor);
     } else {
       img.fill(composite, color: img.ColorRgb8(248, 248, 248));
@@ -377,7 +392,7 @@ class ImageComposerService {
     required AppSettings settings,
   }) {
     if (images.isEmpty) {
-      throw Exception('合成する画像がありません');
+      throw Exception('no_images');
     }
 
     final referenceImage = images.first;
@@ -399,12 +414,10 @@ class ImageComposerService {
 
     final cellWidth = targetWidth ~/ gridStyle.columns;
     final cellHeight = targetHeight ~/ gridStyle.rows;
-    final borderWidth = settings.showGridBorder
-        ? settings.borderWidth.toInt()
-        : 0;
+    final borderWidth =
+        settings.showGridBorder ? settings.borderWidth.toInt() : 0;
 
-    final compositeWidth =
-        (cellWidth * gridStyle.columns) +
+    final compositeWidth = (cellWidth * gridStyle.columns) +
         (borderWidth * (gridStyle.columns - 1));
     final compositeHeight =
         (cellHeight * gridStyle.rows) + (borderWidth * (gridStyle.rows - 1));
@@ -421,9 +434,8 @@ class ImageComposerService {
     );
 
     if (settings.showGridBorder && borderWidth > 0) {
-      final borderColor = _convertFlutterColorToImageColorInIsolate(
-        settings.borderColor,
-      );
+      final borderColor =
+          _convertFlutterColorToImageColorInIsolate(settings.borderColor);
       img.fill(composite, color: borderColor);
     }
 
