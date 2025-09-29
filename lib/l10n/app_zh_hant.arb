@@ -164,5 +164,23 @@
   "redTone": "紅色調",
   "greenTone": "綠色調",
   "blueTone": "藍色調",
-  "systemDefault": "系統預設"
+  "systemDefault": "系統預設",
+  "compositingCompleted": "影像合成和儲存成功完成",
+  "compositingCompletedGalleryFailed": "影像合成完成（相簿儲存失敗）",
+  "compositingFailed": "影像合成失敗。請重試。",
+  "loadingImages": "正在載入影像...",
+  "loadingImageProgress": "正在載入影像 {current}/{total}...",
+  "@loadingImageProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "compositingImages": "正在合成影像...",
+  "savingToFile": "正在將影像儲存至檔案...",
+  "compositingCompletedFile": "影像合成完成（檔案已儲存）"
 }

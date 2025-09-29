@@ -164,5 +164,23 @@
   "redTone": "빨간 계열",
   "greenTone": "초록 계열",
   "blueTone": "파란 계열",
-  "systemDefault": "시스템 기본값"
+  "systemDefault": "시스템 기본값",
+  "compositingCompleted": "이미지 합성과 저장이 성공적으로 완료되었습니다",
+  "compositingCompletedGalleryFailed": "이미지 합성이 완료되었습니다 (갤러리 저장 실패)",
+  "compositingFailed": "이미지 합성에 실패했습니다. 다시 시도해 주세요.",
+  "loadingImages": "이미지 로딩 중...",
+  "loadingImageProgress": "이미지 {current}/{total} 로딩 중...",
+  "@loadingImageProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "compositingImages": "이미지 합성 중...",
+  "savingToFile": "파일에 이미지 저장 중...",
+  "compositingCompletedFile": "이미지 합성이 완료되었습니다 (파일 저장됨)"
 }

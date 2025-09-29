@@ -164,5 +164,23 @@
   "redTone": "红色调",
   "greenTone": "绿色调",
   "blueTone": "蓝色调",
-  "systemDefault": "系统默认"
+  "systemDefault": "系统默认",
+  "compositingCompleted": "图像合成和保存成功完成",
+  "compositingCompletedGalleryFailed": "图像合成完成（图库保存失败）",
+  "compositingFailed": "图像合成失败。请重试。",
+  "loadingImages": "正在加载图像...",
+  "loadingImageProgress": "正在加载图像 {current}/{total}...",
+  "@loadingImageProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "compositingImages": "正在合成图像...",
+  "savingToFile": "正在将图像保存到文件...",
+  "compositingCompletedFile": "图像合成完成（文件已保存）"
 }

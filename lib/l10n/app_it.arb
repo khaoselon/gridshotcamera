@@ -164,5 +164,23 @@
   "redTone": "Tonalità Rossa",
   "greenTone": "Tonalità Verde",
   "blueTone": "Tonalità Blu",
-  "systemDefault": "Predefinito di Sistema"
+  "systemDefault": "Predefinito di Sistema",
+  "compositingCompleted": "Composizione e salvataggio dell'immagine completati con successo",
+  "compositingCompletedGalleryFailed": "Composizione dell'immagine completata (salvataggio galleria fallito)",
+  "compositingFailed": "Composizione dell'immagine fallita. Riprova.",
+  "loadingImages": "Caricamento immagini...",
+  "loadingImageProgress": "Caricamento immagine {current}/{total}...",
+  "@loadingImageProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "compositingImages": "Composizione immagini...",
+  "savingToFile": "Salvataggio immagine su file...",
+  "compositingCompletedFile": "Composizione dell'immagine completata (file salvato)"
 }

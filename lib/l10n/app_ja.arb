@@ -165,5 +165,23 @@
   "redTone": "赤系",
   "greenTone": "緑系",
   "blueTone": "青系",
-  "systemDefault": "システムデフォルト"
+  "systemDefault": "システムデフォルト",
+  "compositingCompleted": "画像の合成と保存が完了しました",
+  "compositingCompletedGalleryFailed": "画像の合成が完了しました（ギャラリー保存は失敗）",
+  "compositingFailed": "画像の合成に失敗しました。もう一度お試しください。",
+  "loadingImages": "画像を読み込み中...",
+  "loadingImageProgress": "画像 {current}/{total} を読み込み中...",
+  "@loadingImageProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "compositingImages": "画像を合成中...",
+  "savingToFile": "画像をファイルに保存中...",
+  "compositingCompletedFile": "画像の合成が完了しました（ファイル保存済み）"
 }

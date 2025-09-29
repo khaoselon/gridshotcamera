@@ -164,5 +164,23 @@
   "redTone": "Rotton",
   "greenTone": "Grünton",
   "blueTone": "Blauton",
-  "systemDefault": "System-Standard"
+  "systemDefault": "System-Standard",
+  "compositingCompleted": "Bildkomposition und Speicherung erfolgreich abgeschlossen",
+  "compositingCompletedGalleryFailed": "Bildkomposition abgeschlossen (Galerie-Speicherung fehlgeschlagen)",
+  "compositingFailed": "Bildkomposition fehlgeschlagen. Bitte erneut versuchen.",
+  "loadingImages": "Bilder werden geladen...",
+  "loadingImageProgress": "Bild {current}/{total} wird geladen...",
+  "@loadingImageProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "compositingImages": "Bilder werden komponiert...",
+  "savingToFile": "Bild wird in Datei gespeichert...",
+  "compositingCompletedFile": "Bildkomposition abgeschlossen (Datei gespeichert)"
 }

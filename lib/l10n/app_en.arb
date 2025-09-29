@@ -165,5 +165,23 @@
   "redTone": "Red Tone",
   "greenTone": "Green Tone",
   "blueTone": "Blue Tone",
-  "systemDefault": "System Default"
+  "systemDefault": "System Default",
+  "compositingCompleted": "Image composition and save completed successfully",
+  "compositingCompletedGalleryFailed": "Image composition completed (gallery save failed)",
+  "compositingFailed": "Image composition failed. Please try again.",
+  "loadingImages": "Loading images...",
+  "loadingImageProgress": "Loading image {current}/{total}...",
+  "@loadingImageProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "compositingImages": "Compositing images...",
+  "savingToFile": "Saving image to file...",
+  "compositingCompletedFile": "Image composition completed (file saved)"
 }
