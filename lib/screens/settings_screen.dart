@@ -205,7 +205,6 @@ class _SettingsScreenState extends State<SettingsScreen>
         colorScheme: colorScheme,
         children: [
           _buildGridBorderTile(settings, l10n, theme, colorScheme),
-
           if (settings.showGridBorder) ...[
             const Divider(height: 24),
             _buildBorderColorTile(settings, l10n, theme, colorScheme),
@@ -227,16 +226,15 @@ class _SettingsScreenState extends State<SettingsScreen>
         ],
       ),
 
-      const SizedBox(height: 20),
-
-      // アプリ情報セクション
-      _buildSectionCard(
-        title: l10n.appInfo,
-        icon: Icons.info_rounded,
-        theme: theme,
-        colorScheme: colorScheme,
-        children: [_buildAppInfoTiles(l10n, theme, colorScheme)],
-      ),
+      // ★ アプリ情報セクションをコメントアウト
+      // const SizedBox(height: 20),
+      // _buildSectionCard(
+      //   title: l10n.appInfo,
+      //   icon: Icons.info_rounded,
+      //   theme: theme,
+      //   colorScheme: colorScheme,
+      //   children: [_buildAppInfoTiles(l10n, theme, colorScheme)],
+      // ),
 
       const SizedBox(height: 40),
     ];
@@ -744,9 +742,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                 _getQualityDisplayName(l10n, quality),
                 style: TextStyle(
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  color: isSelected
-                      ? colorScheme.primary
-                      : colorScheme.onSurface,
+                  color:
+                      isSelected ? colorScheme.primary : colorScheme.onSurface,
                 ),
               ),
               subtitle: Text(
