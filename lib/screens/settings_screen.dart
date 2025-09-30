@@ -118,9 +118,17 @@ class _SettingsScreenState extends State<SettingsScreen>
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
+    final sections = _buildAllSections(settings, l10n, theme, colorScheme);
+
     return ListView(
       padding: const EdgeInsets.all(20.0),
-      children: _buildAllSections(settings, l10n, theme, colorScheme),
+      children: [
+        for (int i = 0; i < sections.length; i++) ...[
+          sections[i],
+          if (i < sections.length - 1) const SizedBox(height: 20),
+        ],
+        const SizedBox(height: 20),
+      ],
     );
   }
 
@@ -132,34 +140,35 @@ class _SettingsScreenState extends State<SettingsScreen>
   ) {
     final sections = _buildAllSections(settings, l10n, theme, colorScheme);
 
-    // セクションをより均等に左右に分割
     final leftSections = <Widget>[];
     final rightSections = <Widget>[];
 
-    // 言語設定とグリッド設定を左に、画像品質とアプリ情報を右に配置
-    if (sections.length >= 4) {
+    // ★ 修正：セクションを正しく分割（SizedBoxを含まないため単純に分割可能）
+    if (sections.length >= 3) {
+      // 言語設定とグリッド設定を左に
       leftSections.addAll([
         sections[0], // 言語設定
         const SizedBox(height: 20),
-        sections[1], // グリッド境界線設定（完全なセクション）
+        sections[1], // グリッド境界線設定
       ]);
 
+      // 画像品質を右に
       rightSections.addAll([
         sections[2], // 画像品質設定
-        const SizedBox(height: 20),
-        sections[3], // アプリ情報
       ]);
     } else {
       // セクション数が少ない場合は交互に配置
       for (int i = 0; i < sections.length; i++) {
         if (i % 2 == 0) {
           leftSections.add(sections[i]);
-          if (i + 1 < sections.length)
+          if (i + 1 < sections.length) {
             leftSections.add(const SizedBox(height: 20));
+          }
         } else {
           rightSections.add(sections[i]);
-          if (i + 1 < sections.length)
+          if (i + 1 < sections.length) {
             rightSections.add(const SizedBox(height: 20));
+          }
         }
       }
     }
@@ -169,16 +178,15 @@ class _SettingsScreenState extends State<SettingsScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 左側のセクション
           Expanded(child: Column(children: leftSections)),
           const SizedBox(width: 20),
-          // 右側のセクション
           Expanded(child: Column(children: rightSections)),
         ],
       ),
     );
   }
 
+  /// ★ 修正：SizedBoxを含まない純粋なセクションリストを返す
   List<Widget> _buildAllSections(
     AppSettings settings,
     AppLocalizations l10n,
@@ -194,8 +202,6 @@ class _SettingsScreenState extends State<SettingsScreen>
         colorScheme: colorScheme,
         children: [_buildLanguageTile(settings, l10n, theme, colorScheme)],
       ),
-
-      const SizedBox(height: 20),
 
       // グリッド表示設定セクション
       _buildSectionCard(
@@ -213,8 +219,6 @@ class _SettingsScreenState extends State<SettingsScreen>
         ],
       ),
 
-      const SizedBox(height: 20),
-
       // 画像品質設定セクション
       _buildSectionCard(
         title: l10n.imageQuality,
@@ -226,17 +230,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         ],
       ),
 
-      // ★ アプリ情報セクションをコメントアウト
-      // const SizedBox(height: 20),
-      // _buildSectionCard(
-      //   title: l10n.appInfo,
-      //   icon: Icons.info_rounded,
-      //   theme: theme,
-      //   colorScheme: colorScheme,
-      //   children: [_buildAppInfoTiles(l10n, theme, colorScheme)],
-      // ),
-
-      const SizedBox(height: 40),
+      // ★ アプリ情報セクションはコメントアウト済み（非表示）
     ];
   }
 
@@ -330,7 +324,6 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  // 修正：すべてのサポート言語を含む完全な多言語ドロップダウン
   Widget _buildLanguageTile(
     AppSettings settings,
     AppLocalizations l10n,
@@ -357,8 +350,8 @@ class _SettingsScreenState extends State<SettingsScreen>
       ),
       trailing: Container(
         constraints: const BoxConstraints(
-          minWidth: 140, // 最小幅を確保
-          maxWidth: 180, // 最大幅も制限
+          minWidth: 140,
+          maxWidth: 180,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
@@ -372,7 +365,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         child: DropdownButton<String>(
           value: settings.languageCode,
           underline: const SizedBox(),
-          isExpanded: true, // 追加：幅を最大限に使用
+          isExpanded: true,
           icon: Icon(
             Icons.keyboard_arrow_down_rounded,
             color: colorScheme.primary,
@@ -390,12 +383,10 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  // 完全な言語ドロップダウンアイテムリストを構築
   List<DropdownMenuItem<String>> _buildLanguageDropdownItems(
     AppLocalizations l10n,
   ) {
     return [
-      // システムデフォルト
       DropdownMenuItem(
         value: 'system',
         child: Row(
@@ -404,18 +395,15 @@ class _SettingsScreenState extends State<SettingsScreen>
             const Text('🌍', style: TextStyle(fontSize: 16)),
             const SizedBox(width: 8),
             Expanded(
-              // 追加：テキスト部分を拡張
               child: Text(
                 l10n.systemDefault,
                 style: const TextStyle(fontSize: 14),
-                overflow: TextOverflow.ellipsis, // 追加：オーバーフロー処理
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
         ),
       ),
-
-      // 日本語
       DropdownMenuItem(
         value: 'ja',
         child: Row(
@@ -433,8 +421,6 @@ class _SettingsScreenState extends State<SettingsScreen>
           ],
         ),
       ),
-
-      // 英語
       DropdownMenuItem(
         value: 'en',
         child: Row(
@@ -452,8 +438,6 @@ class _SettingsScreenState extends State<SettingsScreen>
           ],
         ),
       ),
-
-      // ドイツ語
       DropdownMenuItem(
         value: 'de',
         child: Row(
@@ -471,8 +455,6 @@ class _SettingsScreenState extends State<SettingsScreen>
           ],
         ),
       ),
-
-      // スペイン語
       DropdownMenuItem(
         value: 'es',
         child: Row(
@@ -490,8 +472,6 @@ class _SettingsScreenState extends State<SettingsScreen>
           ],
         ),
       ),
-
-      // イタリア語
       DropdownMenuItem(
         value: 'it',
         child: Row(
@@ -509,8 +489,6 @@ class _SettingsScreenState extends State<SettingsScreen>
           ],
         ),
       ),
-
-      // 韓国語
       DropdownMenuItem(
         value: 'ko',
         child: Row(
@@ -528,8 +506,6 @@ class _SettingsScreenState extends State<SettingsScreen>
           ],
         ),
       ),
-
-      // ポルトガル語
       DropdownMenuItem(
         value: 'pt',
         child: Row(
@@ -547,8 +523,6 @@ class _SettingsScreenState extends State<SettingsScreen>
           ],
         ),
       ),
-
-      // 中国語簡体字
       DropdownMenuItem(
         value: 'zh',
         child: Row(
@@ -566,8 +540,6 @@ class _SettingsScreenState extends State<SettingsScreen>
           ],
         ),
       ),
-
-      // 中国語繁体字
       DropdownMenuItem(
         value: 'zh-Hant',
         child: Row(
@@ -765,68 +737,6 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  Widget _buildAppInfoTiles(
-    AppLocalizations l10n,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
-    return Column(
-      children: [
-        ListTile(
-          title: Text(
-            l10n.version,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          subtitle: Text(
-            '1.0.0',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurface.withOpacity(0.7),
-            ),
-          ),
-          trailing: Icon(
-            Icons.info_outline_rounded,
-            color: colorScheme.primary,
-          ),
-        ),
-        ListTile(
-          title: Text(
-            l10n.developer,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          subtitle: Text(
-            l10n.teamName,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurface.withOpacity(0.7),
-            ),
-          ),
-          trailing: Icon(Icons.people_rounded, color: colorScheme.primary),
-        ),
-        ListTile(
-          title: Text(
-            l10n.aboutAds,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          subtitle: Text(
-            l10n.appDescription,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurface.withOpacity(0.7),
-            ),
-          ),
-          trailing: Icon(Icons.ads_click_rounded, color: colorScheme.primary),
-        ),
-      ],
-    );
-  }
-
   void _showColorPicker(
     BuildContext context,
     AppLocalizations l10n,
@@ -865,22 +775,29 @@ class _SettingsScreenState extends State<SettingsScreen>
     ColorScheme colorScheme,
   ) {
     final colors = [
-      // 基本色
-      Colors.white, Colors.black, Colors.grey,
-      // 暖色系
-      Colors.red, Colors.orange, Colors.yellow, Colors.amber,
-      // 寒色系
-      Colors.blue, Colors.cyan, Colors.lightBlue, Colors.indigo,
-      // 自然色
-      Colors.green, Colors.lightGreen, Colors.lime, Colors.teal,
-      // その他
-      Colors.purple, Colors.pink, Colors.brown, Colors.deepOrange,
-      // 明るいバリエーション
+      Colors.white,
+      Colors.black,
+      Colors.grey,
+      Colors.red,
+      Colors.orange,
+      Colors.yellow,
+      Colors.amber,
+      Colors.blue,
+      Colors.cyan,
+      Colors.lightBlue,
+      Colors.indigo,
+      Colors.green,
+      Colors.lightGreen,
+      Colors.lime,
+      Colors.teal,
+      Colors.purple,
+      Colors.pink,
+      Colors.brown,
+      Colors.deepOrange,
       Colors.red[300]!,
       Colors.blue[300]!,
       Colors.green[300]!,
       Colors.purple[300]!,
-      // 暗いバリエーション
       Colors.red[700]!,
       Colors.blue[700]!,
       Colors.green[700]!,
@@ -987,7 +904,6 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  // 修正：完全な言語表示名対応
   String _getLanguageDisplayName(String languageCode, AppLocalizations l10n) {
     switch (languageCode) {
       case 'system':
@@ -1016,7 +932,6 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   String _getColorName(AppLocalizations l10n, Color color) {
-    // 多言語化対応の色名
     if (color == Colors.white) return l10n.white;
     if (color == Colors.black) return l10n.black;
     if (color == Colors.red) return l10n.red;
