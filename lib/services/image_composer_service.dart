@@ -68,7 +68,7 @@ class ImageComposerService {
 
   ImageComposerService._internal();
 
-  /// ★ 修正：ギャラリー保存をメインIsolateで実行する画像合成
+  /// ★ 修正：ギャラリー保存なしの画像合成
   Future<CompositeResult> composeGridImage({
     required ShootingSession session,
     AppSettings? settings,
@@ -79,12 +79,11 @@ class ImageComposerService {
       final images = session.getCompletedImages();
 
       if (images.length != session.gridStyle.totalCells) {
-        // ここでは例外は投げるが、UIには後段で汎用メッセージを返す
         throw Exception('not_enough_captured_images');
       }
 
       debugPrint(
-        '★ Isolate画像合成を開始（ギャラリー保存分離版）: ${images.length}枚の画像 (${session.mode.name}モード)',
+        '★ Isolate画像合成を開始（手動保存版）: ${images.length}枚の画像 (${session.mode.name}モード)',
       );
 
       // 出力ファイルパスを事前に決定
@@ -97,7 +96,7 @@ class ImageComposerService {
       // Isolateでの処理用にファイルパスのリストを作成
       final imagePaths = images.map((img) => img.filePath).toList();
 
-      // ★ 修正：Isolateは画像合成のみ、ギャラリー保存はメインで実行
+      // ★ 修正：Isolateは画像合成のみ、ギャラリー保存は「保存」ボタン押下時に実行
       final result = await _composeInIsolate(
         imagePaths: imagePaths,
         gridStyle: session.gridStyle,
@@ -108,23 +107,10 @@ class ImageComposerService {
       );
 
       if (result.success && result.filePath != null) {
-        debugPrint('★ Isolate画像合成完了: ${result.filePath}');
+        debugPrint('★ Isolate画像合成完了（ギャラリー保存なし）: ${result.filePath}');
 
-        // ★ 重要：ギャラリー保存をメインIsolateで実行（BackgroundIsolateBinaryMessengerエラー回避）
-        bool gallerySaveSuccess = false;
-        try {
-          debugPrint('★ メインIsolateでギャラリー保存開始...');
-
-          // ★ メインスレッド負荷軽減のため、少し遅延してからギャラリー保存
-          await Future.delayed(const Duration(milliseconds: 100));
-
-          await Gal.putImage(result.filePath!);
-          gallerySaveSuccess = true;
-          debugPrint('★ メインIsolateでギャラリー保存完了');
-        } catch (e) {
-          debugPrint('★ メインIsolateギャラリー保存エラー: $e');
-          // ギャラリー保存失敗でもアプリ内ファイルは保存済みなので処理継続
-        }
+        // ★ 重要：ギャラリー保存は行わず、ファイル保存のみ
+        // ユーザーが「保存」ボタンを押した時に保存する
 
         // 一時ファイルのクリーンアップ（バックグラウンドで実行）
         _cleanupTemporaryFilesAsync(session);
@@ -132,17 +118,13 @@ class ImageComposerService {
         return CompositeResult(
           success: true,
           filePath: result.filePath,
-          message: gallerySaveSuccess
-              ? '画像の合成と保存が完了しました'
-              : '画像の合成が完了しました（ギャラリー保存は失敗）',
+          message: '画像の合成が完了しました',
         );
       } else {
-        // 失敗時は Isolate 側から返ってきたメッセージ（汎用化済み）をそのまま採用
         return CompositeResult(success: false, message: result.message);
       }
     } catch (e) {
-      debugPrint('★ 画像合成エラー（ギャラリー保存分離版）: $e');
-      // ★ ユーザー向け汎用メッセージに統一
+      debugPrint('★ 画像合成エラー（手動保存版）: $e');
       return CompositeResult(
         success: false,
         message: '画像の合成に失敗しました。もう一度お試しください。',

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:gridshot_camera/models/grid_style.dart';
 import 'package:gridshot_camera/models/shooting_mode.dart';
@@ -76,8 +77,7 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
     final theme = Theme.of(context);
     final settings = SettingsService.instance.currentSettings;
 
-    final borderColor =
-        widget.borderColor ??
+    final borderColor = widget.borderColor ??
         (widget.showBorders ? settings.borderColor : Colors.transparent);
     final borderWidth =
         widget.borderWidth ?? (widget.showBorders ? settings.borderWidth : 0.0);
@@ -198,8 +198,7 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
 
   double _getIconSize() {
     // 固定サイズに基づいてアイコンサイズを計算
-    final cellSize =
-        widget.size /
+    final cellSize = widget.size /
         (widget.gridStyle.columns > widget.gridStyle.rows
             ? widget.gridStyle.columns
             : widget.gridStyle.rows);
@@ -209,8 +208,7 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
 
   double _getTextSize() {
     // 固定サイズに基づいてテキストサイズを計算
-    final cellSize =
-        widget.size /
+    final cellSize = widget.size /
         (widget.gridStyle.columns > widget.gridStyle.rows
             ? widget.gridStyle.columns
             : widget.gridStyle.rows);
@@ -238,7 +236,7 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
   }
 }
 
-// グリッドオーバーレイ（カメラ画面で使用）- 横画面対応版
+// グリッドオーバーレイ（カメラ画面で使用）- サムネイル表示対応版
 class GridOverlay extends StatelessWidget {
   final GridStyle gridStyle;
   final Size size;
@@ -247,6 +245,7 @@ class GridOverlay extends StatelessWidget {
   final double borderWidth;
   final bool showCellNumbers;
   final ShootingMode? shootingMode;
+  final List<CapturedImage?> capturedImages; // ★ 追加：撮影済み画像
 
   const GridOverlay({
     super.key,
@@ -257,6 +256,7 @@ class GridOverlay extends StatelessWidget {
     this.borderWidth = 2.0,
     this.showCellNumbers = true,
     this.shootingMode,
+    this.capturedImages = const [], // ★ 追加
   });
 
   @override
@@ -264,16 +264,125 @@ class GridOverlay extends StatelessWidget {
     return Container(
       width: size.width,
       height: size.height,
-      child: CustomPaint(
-        painter: GridPainter(
-          gridStyle: gridStyle,
-          currentIndex: currentIndex,
-          borderColor: borderColor,
-          borderWidth: borderWidth,
-          showCellNumbers: showCellNumbers,
-          textColor: Colors.white,
-          shootingMode: shootingMode,
-          screenSize: size, // 画面サイズを渡す
+      child: Stack(
+        children: [
+          // ★ 1. サムネイル表示レイヤー（下層）
+          _buildThumbnailLayer(),
+
+          // ★ 2. グリッド線レイヤー（上層）- サイズを明示的に指定
+          SizedBox(
+            width: size.width,
+            height: size.height,
+            child: CustomPaint(
+              size: size,
+              painter: GridPainter(
+                gridStyle: gridStyle,
+                currentIndex: currentIndex,
+                borderColor: borderColor,
+                borderWidth: borderWidth,
+                showCellNumbers: showCellNumbers,
+                textColor: Colors.white,
+                shootingMode: shootingMode,
+                screenSize: size,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ★ 修正：撮影済み画像のサムネイル表示レイヤー（強制表示版）
+  Widget _buildThumbnailLayer() {
+    final cellWidth = size.width / gridStyle.columns;
+    final cellHeight = size.height / gridStyle.rows;
+
+    debugPrint('★ GridOverlay - サムネイル表示開始');
+    debugPrint('  - capturedImages長さ: ${capturedImages.length}');
+    debugPrint('  - gridStyle.totalCells: ${gridStyle.totalCells}');
+
+    for (int i = 0; i < capturedImages.length; i++) {
+      if (capturedImages[i] != null) {
+        debugPrint('  - [${i}] 撮影済み: ${capturedImages[i]!.filePath}');
+      } else {
+        debugPrint('  - [${i}] 未撮影');
+      }
+    }
+
+    return Stack(
+      children: List.generate(gridStyle.totalCells, (index) {
+        // 撮影済み画像がある場合のみサムネイルを表示
+        if (index < capturedImages.length && capturedImages[index] != null) {
+          final position = gridStyle.getPosition(index);
+          final capturedImage = capturedImages[index]!;
+
+          debugPrint(
+              '★ サムネイル描画: インデックス=$index, 位置=${position.displayString}, パス=${capturedImage.filePath}');
+          debugPrint(
+              '★ セル位置: left=${position.col * cellWidth}, top=${position.row * cellHeight}, width=$cellWidth, height=$cellHeight');
+
+          return Positioned(
+            left: position.col * cellWidth,
+            top: position.row * cellHeight,
+            width: cellWidth,
+            height: cellHeight,
+            child: Container(
+              // ★ 強制表示：明確な背景色で確認
+              color: Colors.yellow.withOpacity(0.5), // ★ 黄色で確実に見える
+              child: Stack(
+                children: [
+                  // サムネイル画像
+                  _buildThumbnail(capturedImage.filePath, index),
+                  // デバッグ用テキスト
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      color: Colors.black.withOpacity(0.7),
+                      child: Text(
+                        '${position.displayString}\n撮影済',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+      }),
+    );
+  }
+
+  /// ★ 新規追加：個別サムネイルウィジェット
+  Widget _buildThumbnail(String imagePath, int index) {
+    return Container(
+      // 半透明の暗いオーバーレイで撮影済みを強調
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.3),
+      ),
+      child: ClipRect(
+        child: Image.file(
+          File(imagePath),
+          fit: BoxFit.cover, // ★ グリッドに収まるようにスケーリング
+          errorBuilder: (context, error, stackTrace) {
+            // 画像読み込みエラー時の表示
+            return Container(
+              color: Colors.black.withOpacity(0.5),
+              child: Center(
+                child: Icon(
+                  Icons.broken_image,
+                  color: Colors.white.withOpacity(0.5),
+                  size: 24,
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -559,8 +668,7 @@ class GridStyleIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final indicatorColor =
-        color ??
+    final indicatorColor = color ??
         (isSelected ? theme.colorScheme.primary : theme.iconTheme.color);
 
     return Container(

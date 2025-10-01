@@ -353,19 +353,19 @@ class _CameraScreenState extends State<CameraScreen>
 
       Navigator.of(context)
           .pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => PreviewScreen(session: _session),
-            ),
-          )
+        MaterialPageRoute(
+          builder: (context) => PreviewScreen(session: _session),
+        ),
+      )
           .then((_) {
-            // ★ 修正：画面遷移完了後に広告を表示（FrameEvents回避）
-            debugPrint('★ 画面遷移完了 - 広告表示をスケジュール');
+        // ★ 修正：画面遷移完了後に広告を表示（FrameEvents回避）
+        debugPrint('★ 画面遷移完了 - 広告表示をスケジュール');
 
-            // 遷移完了後、少し遅延してから広告表示
-            Future.delayed(const Duration(milliseconds: 500), () {
-              AdService.instance.showInterstitialAd();
-            });
-          });
+        // 遷移完了後、少し遅延してから広告表示
+        Future.delayed(const Duration(milliseconds: 500), () {
+          AdService.instance.showInterstitialAd();
+        });
+      });
     } catch (e) {
       debugPrint('★ 安全な画面遷移エラー: $e');
 
@@ -401,8 +401,7 @@ class _CameraScreenState extends State<CameraScreen>
     if (_isScreenDisposed ||
         _isDisposing ||
         _isTakingPicture ||
-        _isTransitioning)
-      return;
+        _isTransitioning) return;
 
     await _cameraService.toggleFlashMode();
     if (mounted &&
@@ -420,8 +419,7 @@ class _CameraScreenState extends State<CameraScreen>
     if (_isScreenDisposed ||
         _isDisposing ||
         _isTakingPicture ||
-        _isTransitioning)
-      return;
+        _isTransitioning) return;
 
     setState(() {
       _isInitializing = true;
@@ -450,8 +448,7 @@ class _CameraScreenState extends State<CameraScreen>
     if (_isScreenDisposed ||
         _isDisposing ||
         _isTakingPicture ||
-        _isTransitioning)
-      return;
+        _isTransitioning) return;
 
     final clampedZoom = zoom.clamp(_minZoom, _maxZoom);
 
@@ -470,8 +467,7 @@ class _CameraScreenState extends State<CameraScreen>
         _isScreenDisposed ||
         _isDisposing ||
         _isTakingPicture ||
-        _isTransitioning)
-      return;
+        _isTransitioning) return;
 
     final renderBox = context.findRenderObject() as RenderBox;
     final tapPosition = details.localPosition;
@@ -697,19 +693,32 @@ class _CameraScreenState extends State<CameraScreen>
   Widget _buildGridOverlay() {
     final settings = SettingsService.instance.currentSettings;
 
+    // ★ 修正：撮影中は常に最低限のグリッド線を表示
+    final effectiveBorderWidth =
+        settings.showGridBorder ? settings.borderWidth : 1.0; // 設定がオフでも薄い線を表示
+
+    final effectiveBorderColor = settings.showGridBorder
+        ? settings.borderColor
+        : Colors.white.withOpacity(0.4); // 設定がオフの場合は薄い色
+
+    // ★ 追加：撮影枚数をキーにして強制再描画
+    final capturedCount =
+        _session.capturedImages.where((img) => img != null).length;
+
     return Positioned.fill(
       child: LayoutBuilder(
         builder: (context, constraints) {
           return GridOverlay(
+            key: ValueKey(
+                'grid_${widget.mode.name}_${widget.gridStyle.name}_$capturedCount'), // ★ 追加
             gridStyle: widget.gridStyle,
             size: Size(constraints.maxWidth, constraints.maxHeight),
             currentIndex: _session.currentIndex,
-            borderColor: settings.showGridBorder
-                ? settings.borderColor
-                : Colors.transparent,
-            borderWidth: settings.showGridBorder ? settings.borderWidth : 0,
+            borderColor: effectiveBorderColor,
+            borderWidth: effectiveBorderWidth,
             showCellNumbers: true,
             shootingMode: widget.mode,
+            capturedImages: _session.capturedImages, // ★ 追加：撮影済み画像を渡す
           );
         },
       ),

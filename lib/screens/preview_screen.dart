@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:gal/gal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -233,14 +234,18 @@ class _PreviewScreenState extends State<PreviewScreen>
     try {
       final l10n = AppLocalizations.of(context)!;
 
-      // ★ 修正：保存処理をバックグラウンドで実行（メインスレッド負荷軽減）
-      await Future.delayed(const Duration(milliseconds: 100)); // UI更新後に実行
+      // ★ 修正：保存ボタン押下時にギャラリーへ保存
+      debugPrint('★ ギャラリーへ保存開始: $_compositeImagePath');
+
+      await Gal.putImage(_compositeImagePath!);
+
+      debugPrint('★ ギャラリーへ保存完了');
 
       _showSuccessMessage(l10n.saveSuccess);
       HapticFeedback.lightImpact();
     } catch (e) {
       final l10n = AppLocalizations.of(context)!;
-      debugPrint('★ 画像保存処理エラー: $e');
+      debugPrint('★ ギャラリー保存エラー: $e');
       _showErrorMessage('${l10n.saveFailed}: $e');
     } finally {
       if (mounted) {
@@ -323,7 +328,8 @@ class _PreviewScreenState extends State<PreviewScreen>
   void _goHome() {
     _performSafeTransition(() {
       Navigator.of(context).popUntil((route) => route.isFirst);
-      return Future.value(); // ★ 修正：return文を追加してbody might complete normallyエラーを解決
+      return Future
+          .value(); // ★ 修正：return文を追加してbody might complete normallyエラーを解決
     });
   }
 
