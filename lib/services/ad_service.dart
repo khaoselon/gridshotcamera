@@ -3,11 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 
-// ad_service.dart 先頭付近
-const bool kDisableAds =
-    bool.fromEnvironment('DISABLE_ADS', defaultValue: true);
-// 例: DISABLE_ADS=true なら広告は完全ダミーになる
-
 class AdService {
   static final AdService _instance = AdService._internal();
   static AdService get instance => _instance;
@@ -64,17 +59,16 @@ class AdService {
   /// 広告サービスを初期化（メインスレッド負荷軽減版）
   void initialize() {
     if (_isInitialized) return;
+
     try {
-      if (kDisableAds) {
-        _isInitialized = true;
-        debugPrint('★ [DummyAds] AdService 初期化（広告は無効化されています）');
-        return; // ここで終了（SDKもATTも呼ばない）
-      }
-      // ↓ ここから先は元の処理（iOS/Android初期化など）
       debugPrint('★ AdService初期化開始（FrameEvents対策版）');
-      if (Platform.isIOS)
+
+      if (Platform.isIOS) {
         _initializeIOS();
-      else if (Platform.isAndroid) _initializeAndroid();
+      } else if (Platform.isAndroid) {
+        _initializeAndroid();
+      }
+
       _isInitialized = true;
       debugPrint('★ AdService初期化完了');
     } catch (e) {
@@ -181,17 +175,12 @@ class AdService {
     required Function(Ad ad) onAdLoaded,
     required Function(Ad ad, LoadAdError error) onAdFailedToLoad,
   }) async {
-    // ★ ここを追加：ダミー時は即スキップ
-    if (kDisableAds) {
-      debugPrint('★ [DummyAds] createBannerAd: スキップ');
-      return null;
-    }
-
     if (!_isInitialized || _isBannerLoading) {
       debugPrint('★ AdServiceが初期化されていないか、既にロード中です');
       return null;
     }
 
+    // ★ 表示タイミングチェック（FrameEvents対策）
     if (!_canDisplayAd()) {
       debugPrint('★ バナー広告作成をスキップ（FrameEvents対策）');
       return null;
@@ -201,6 +190,8 @@ class AdService {
 
     try {
       _bannerAd?.dispose();
+
+      // ★ 修正：メインスレッド負荷分散のため段階的実行
       await Future.delayed(const Duration(milliseconds: 200));
 
       _bannerAd = BannerAd(
@@ -210,7 +201,7 @@ class AdService {
         listener: BannerAdListener(
           onAdLoaded: (ad) {
             _isBannerLoading = false;
-            _recordAdDisplayTime();
+            _recordAdDisplayTime(); // ★ 表示時刻記録
             debugPrint('★ バナー広告の読み込み完了 (FrameEvents対策版)');
             onAdLoaded(ad);
           },
@@ -220,12 +211,19 @@ class AdService {
             ad.dispose();
             onAdFailedToLoad(ad, error);
           },
-          onAdOpened: (ad) => debugPrint('★ バナー広告がタップされました'),
-          onAdClosed: (ad) => debugPrint('★ バナー広告が閉じられました'),
-          onAdImpression: (ad) => debugPrint('★ バナー広告インプレッション'),
+          onAdOpened: (ad) {
+            debugPrint('★ バナー広告がタップされました');
+          },
+          onAdClosed: (ad) {
+            debugPrint('★ バナー広告が閉じられました');
+          },
+          onAdImpression: (ad) {
+            debugPrint('★ バナー広告インプレッション');
+          },
         ),
       );
 
+      // ★ 修正：さらに段階的なロード実行（FrameEvents回避）
       await _loadBannerWithFrameControl();
       return _bannerAd;
     } catch (e) {

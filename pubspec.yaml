@@ -49,10 +49,6 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
-    - assets/mock/image1.png
-    - assets/mock/image2.png
-    - assets/mock/image3.png
-    - assets/mock/image4.png
 
   fonts:
     - family: NotoSansJP
