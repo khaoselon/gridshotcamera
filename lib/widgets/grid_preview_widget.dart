@@ -245,7 +245,8 @@ class GridOverlay extends StatelessWidget {
   final double borderWidth;
   final bool showCellNumbers;
   final ShootingMode? shootingMode;
-  final List<CapturedImage?> capturedImages; // ★ 追加：撮影済み画像
+  final List<CapturedImage?> capturedImages;
+  final double thumbnailOpacity;
 
   const GridOverlay({
     super.key,
@@ -256,35 +257,32 @@ class GridOverlay extends StatelessWidget {
     this.borderWidth = 2.0,
     this.showCellNumbers = true,
     this.shootingMode,
-    this.capturedImages = const [], // ★ 追加
+    this.capturedImages = const [],
+    this.thumbnailOpacity = 0.4,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: size.width,
       height: size.height,
       child: Stack(
+        fit: StackFit.expand,
         children: [
-          // ★ 1. サムネイル表示レイヤー（下層）
-          _buildThumbnailLayer(),
-
-          // ★ 2. グリッド線レイヤー（上層）- サイズを明示的に指定
-          SizedBox(
-            width: size.width,
-            height: size.height,
-            child: CustomPaint(
-              size: size,
-              painter: GridPainter(
-                gridStyle: gridStyle,
-                currentIndex: currentIndex,
-                borderColor: borderColor,
-                borderWidth: borderWidth,
-                showCellNumbers: showCellNumbers,
-                textColor: Colors.white,
-                shootingMode: shootingMode,
-                screenSize: size,
-              ),
+          // サムネイル表示
+          ..._buildThumbnails(),
+          // グリッド線レイヤー
+          CustomPaint(
+            size: size,
+            painter: GridPainter(
+              gridStyle: gridStyle,
+              currentIndex: currentIndex,
+              borderColor: borderColor,
+              borderWidth: borderWidth,
+              showCellNumbers: showCellNumbers,
+              textColor: Colors.white,
+              shootingMode: shootingMode,
+              screenSize: size,
             ),
           ),
         ],
@@ -292,97 +290,132 @@ class GridOverlay extends StatelessWidget {
     );
   }
 
-  /// ★ 修正：撮影済み画像のサムネイル表示レイヤー（強制表示版）
-  Widget _buildThumbnailLayer() {
+  List<Widget> _buildThumbnails() {
     final cellWidth = size.width / gridStyle.columns;
     final cellHeight = size.height / gridStyle.rows;
 
-    debugPrint('★ GridOverlay - サムネイル表示開始');
-    debugPrint('  - capturedImages長さ: ${capturedImages.length}');
-    debugPrint('  - gridStyle.totalCells: ${gridStyle.totalCells}');
+    return List.generate(gridStyle.totalCells, (index) {
+      if (index < capturedImages.length && capturedImages[index] != null) {
+        final position = gridStyle.getPosition(index);
+        final capturedImage = capturedImages[index]!;
 
-    for (int i = 0; i < capturedImages.length; i++) {
-      if (capturedImages[i] != null) {
-        debugPrint('  - [${i}] 撮影済み: ${capturedImages[i]!.filePath}');
-      } else {
-        debugPrint('  - [${i}] 未撮影');
-      }
-    }
-
-    return Stack(
-      children: List.generate(gridStyle.totalCells, (index) {
-        // 撮影済み画像がある場合のみサムネイルを表示
-        if (index < capturedImages.length && capturedImages[index] != null) {
-          final position = gridStyle.getPosition(index);
-          final capturedImage = capturedImages[index]!;
-
-          debugPrint(
-              '★ サムネイル描画: インデックス=$index, 位置=${position.displayString}, パス=${capturedImage.filePath}');
-          debugPrint(
-              '★ セル位置: left=${position.col * cellWidth}, top=${position.row * cellHeight}, width=$cellWidth, height=$cellHeight');
-
-          return Positioned(
-            left: position.col * cellWidth,
-            top: position.row * cellHeight,
-            width: cellWidth,
-            height: cellHeight,
-            child: Container(
-              // ★ 強制表示：明確な背景色で確認
-              color: Colors.yellow.withOpacity(0.5), // ★ 黄色で確実に見える
-              child: Stack(
-                children: [
-                  // サムネイル画像
-                  _buildThumbnail(capturedImage.filePath, index),
-                  // デバッグ用テキスト
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      color: Colors.black.withOpacity(0.7),
-                      child: Text(
-                        '${position.displayString}\n撮影済',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-        return const SizedBox.shrink();
-      }),
-    );
-  }
-
-  /// ★ 新規追加：個別サムネイルウィジェット
-  Widget _buildThumbnail(String imagePath, int index) {
-    return Container(
-      // 半透明の暗いオーバーレイで撮影済みを強調
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
-      ),
-      child: ClipRect(
-        child: Image.file(
-          File(imagePath),
-          fit: BoxFit.cover, // ★ グリッドに収まるようにスケーリング
-          errorBuilder: (context, error, stackTrace) {
-            // 画像読み込みエラー時の表示
-            return Container(
-              color: Colors.black.withOpacity(0.5),
-              child: Center(
-                child: Icon(
-                  Icons.broken_image,
-                  color: Colors.white.withOpacity(0.5),
-                  size: 24,
+        return Positioned(
+          left: position.col * cellWidth,
+          top: position.row * cellHeight,
+          width: cellWidth,
+          height: cellHeight,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // ★ 修正：Opacityで画像全体を半透明に
+              Opacity(
+                opacity: thumbnailOpacity,
+                child: Container(
+                  color: Colors.black.withOpacity(0.3), // 薄い背景
+                  child: _buildThumbnail(capturedImage.filePath, position),
                 ),
               ),
-            );
+              // 撮影済みマーク
+              Align(
+                alignment: Alignment.topRight,
+                child: Opacity(
+                  opacity: thumbnailOpacity, // マークも同じ透過度
+                  child: Container(
+                    margin: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+      return const SizedBox.shrink();
+    });
+  }
+
+  /// ★ 完全修正：グリッド合成の正しい部分表示（アスペクト比対応版）
+  Widget _buildThumbnail(String imagePath, GridPosition position) {
+    if (shootingMode == ShootingMode.impossible) {
+      // ★ グリッド合成モード：OverflowBoxを使った確実な部分表示
+      final totalWidth = size.width;
+      final totalHeight = size.height;
+      final cellWidth = totalWidth / gridStyle.columns;
+      final cellHeight = totalHeight / gridStyle.rows;
+
+      debugPrint(
+        '★ グリッド合成 - セル${position.displayString}(${position.col},${position.row})',
+      );
+      debugPrint('  totalSize: ${totalWidth}x${totalHeight}');
+      debugPrint('  cellSize: ${cellWidth}x${cellHeight}');
+
+      return ClipRect(
+        child: OverflowBox(
+          minWidth: totalWidth,
+          maxWidth: totalWidth,
+          minHeight: totalHeight,
+          maxHeight: totalHeight,
+          alignment: Alignment(
+            // -1.0(左) から 1.0(右)
+            gridStyle.columns == 1
+                ? 0.0
+                : -1.0 + (2.0 * position.col / (gridStyle.columns - 1)),
+            // -1.0(上) から 1.0(下)
+            gridStyle.rows == 1
+                ? 0.0
+                : -1.0 + (2.0 * position.row / (gridStyle.rows - 1)),
+          ),
+          child: Image.file(
+            File(imagePath),
+            width: totalWidth,
+            height: totalHeight,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              debugPrint('★ 画像読み込みエラー: $error');
+              return _buildErrorWidget();
+            },
+          ),
+        ),
+      );
+    } else {
+      // ★ ならべ撮りモード：画像全体を表示
+      return ClipRect(
+        child: Image.file(
+          File(imagePath),
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint('★ 画像読み込みエラー: $error');
+            return _buildErrorWidget();
           },
+        ),
+      );
+    }
+  }
+
+  Widget _buildErrorWidget() {
+    return Container(
+      color: Colors.red.withOpacity(0.3),
+      child: const Center(
+        child: Icon(
+          Icons.broken_image,
+          color: Colors.white,
+          size: 24,
         ),
       ),
     );
